@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [dev]
+    branches: [main]
 
 permissions:
   contents: write
@@ -39,29 +39,7 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/server/ -v
 
-  # ── 2. Auto PR: dev → main ──────────────────────────────────────────────────
-  auto-pr:
-    name: Auto PR dev → main
-    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create PR dev → main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --base main \
-            --head dev \
-            --title "chore: merge dev into main (auto)" \
-            --body "Automated PR from dev branch after passing CI." \
-            || echo "PR already exists or branch is up-to-date"
-
-  # ── 3. Build Linux .deb ─────────────────────────────────────────────────────
+  # ── 2. Build Linux .deb ─────────────────────────────────────────────────────
   build-linux:
     name: Build Linux (.deb)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -126,7 +104,7 @@ jobs:
           name: linux-deb
           path: dist/*.deb
 
-  # ── 4. Build Windows .msi ───────────────────────────────────────────────────
+  # ── 3. Build Windows .msi ───────────────────────────────────────────────────
   build-windows:
     name: Build Windows (.msi)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -182,7 +160,7 @@ jobs:
           name: windows-msi
           path: dist/*.msi
 
-  # ── 5. Release ──────────────────────────────────────────────────────────────
+  # ── 4. Release ──────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
     if: github.ref == 'refs/heads/main'
