@@ -7,13 +7,13 @@ echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
 for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
-    # Dossier généré par Nuitka contenant l'exécutable et toutes les DLLs/dépendances
-    SRC_DIR="dist/${COMPONENT}/nyxcore-${COMPONENT}.dist"
+    # Dossier réel créé par Nuitka (main.dist d'après vos logs de compilation)
+    SRC_DIR="dist/${COMPONENT}/main.dist"
 
-    # On s'assure que le chemin est au format Windows pour WiX (remplacement des / par des \)
+    # Conversion des slashs pour le format Windows exigé par WiX
     SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
-    # Generate WiX source
+    # Génération du fichier source WiX v4
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -35,7 +35,7 @@ for COMPONENT in client; do
     <StandardDirectory Id="DesktopFolder">
       <Component Id="ShortcutComponent" Guid="*">
         <Shortcut Id="AppShortcut" Name="NyxCore ${COMPONENT^}"
-                  Target="[INSTALLDIR]nyxcore-${COMPONENT}.exe"
+                  Target="[INSTALLDIR]nyxcore-client.exe"
                   WorkingDirectory="INSTALLDIR" />
         <RemoveFolder Id="RemoveDesktop" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\\NyxCore\\${COMPONENT}"
@@ -43,15 +43,17 @@ for COMPONENT in client; do
       </Component>
     </StandardDirectory>
 
-    <ComponentGroup Id="Files" Directory="INSTALLDIR">
-      <Files Include="${SRC_DIR_WIN}\\**" />
+    <ComponentGroup Id="Files">
+      <Component Id="AppFilesComponent" Guid="*" Directory="INSTALLDIR">
+        <Files Include="${SRC_DIR_WIN}\\**" />
+      </Component>
     </ComponentGroup>
 
   </Package>
 </Wix>
 EOF
 
-    # Build MSI avec WiX v4
+    # Build unique du MSI avec WiX v4
     if command -v wix &>/dev/null; then
         echo "[msi] Compilation du pack avec WiX v4..."
         wix build "dist/${COMPONENT}.wxs" -o "dist/${PKG_NAME}-${VERSION}.msi"
@@ -60,5 +62,5 @@ EOF
         exit 1
     fi
 
-    echo "[msi] ${PKG_NAME}-${VERSION}.msi terminé avec succès."
+    echo "[msi] ${PKG_NAME}-${VERSION}.msi terminé avec succès !"
 done
