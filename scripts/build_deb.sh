@@ -1,36 +1,46 @@
-#!/usr/bin/env bash
+#!/bin/env bash
 # build_deb.sh <server|client>
 set -euo pipefail
 
 COMPONENT="${1:-server}"
-VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')
+VERSION="1.0.0"
 ARCH="amd64"
 PKG_NAME="nyxcore-${COMPONENT}"
 PKG_DIR="dist/pkg_${COMPONENT}"
+ICON_PATH="/home/ilan/Bureau/NyxCore/NyxCore.png"
 
 echo "[deb] Building ${PKG_NAME}_${VERSION}.deb …"
 
-# ── Directory structure ───────────────────────────────────────────────────────
+# ── Structure des dossiers ───────────────────────────────────────────────────
 rm -rf "${PKG_DIR}"
 mkdir -p "${PKG_DIR}/DEBIAN"
 mkdir -p "${PKG_DIR}/usr/bin"
 mkdir -p "${PKG_DIR}/usr/lib/nyxcore/${COMPONENT}"
 mkdir -p "${PKG_DIR}/lib/systemd/system"
+mkdir -p "${PKG_DIR}/usr/share/pixmaps"
 
-# ── Copy compiled binary ──────────────────────────────────────────────────────
+# ── Copie de l'icône (si elle existe) ─────────────────────────────────────────
+if [ -f "${ICON_PATH}" ]; then
+    cp "${ICON_PATH}" "${PKG_DIR}/usr/share/pixmaps/nyxcore.png"
+else
+    echo "[warning] Icône introuvable à l'emplacement : ${ICON_PATH}"
+fi
+
+# ── Copie du binaire compilé ──────────────────────────────────────────────────
 BINARY_DIR="dist/${COMPONENT}/nyxcore-${COMPONENT}.dist"
 if [ -d "${BINARY_DIR}" ]; then
     cp -r "${BINARY_DIR}/." "${PKG_DIR}/usr/lib/nyxcore/${COMPONENT}/"
 fi
 
-# ── Wrapper script ────────────────────────────────────────────────────────────
+# ── Script Wrapper (Exécutable principal) ─────────────────────────────────────
 cat > "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}" << EOF
 #!/bin/sh
 exec /usr/lib/nyxcore/${COMPONENT}/nyxcore-${COMPONENT} "\$@"
 EOF
 chmod +x "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}"
 
-# ── Control file ──────────────────────────────────────────────────────────────
+# ── Fichier Control (Métadonnées) ─────────────────────────────────────────────
+# Note: python3 (>= 3.13) force l'utilisation de Python 3.13 au minimum
 cat > "${PKG_DIR}/DEBIAN/control" << EOF
 Package: ${PKG_NAME}
 Version: ${VERSION}
@@ -38,11 +48,13 @@ Section: utils
 Priority: optional
 Architecture: ${ARCH}
 Maintainer: yolezz <yolezz@nyxcore.io>
-Description: NyxCore ISO/OS Hub — ${COMPONENT}
+Depends: python3 (>= 3.13)
+Description: NyxCore — ${COMPONENT}
+ NyxCore is a software that allows for a huge HUB of different ISO operating systems.
  Secure platform for ISO management, license control, and machine tracking.
 EOF
 
-# ── Systemd unit (server only) ────────────────────────────────────────────────
+# ── Unité Systemd (Serveur uniquement) ────────────────────────────────────────
 if [ "${COMPONENT}" = "server" ]; then
     cat > "${PKG_DIR}/lib/systemd/system/nyxcore-server.service" << EOF
 [Unit]
@@ -61,7 +73,7 @@ EnvironmentFile=-/etc/nyxcore/server.env
 WantedBy=multi-user.target
 EOF
 
-    # Post-install script
+    # Script Post-installation
     cat > "${PKG_DIR}/DEBIAN/postinst" << 'EOF'
 #!/bin/sh
 set -e
@@ -75,6 +87,6 @@ EOF
     chmod +x "${PKG_DIR}/DEBIAN/postinst"
 fi
 
-# ── Build package ─────────────────────────────────────────────────────────────
+# ── Construction du paquet ────────────────────────────────────────────────────
 fakeroot dpkg-deb --build "${PKG_DIR}" "dist/${PKG_NAME}_${VERSION}.deb"
 echo "[deb] Done: dist/${PKG_NAME}_${VERSION}.deb"
