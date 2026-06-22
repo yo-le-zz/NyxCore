@@ -18,17 +18,16 @@ for COMPONENT in client; do
            Language="1033" Codepage="1252">
     <MajorUpgrade DowngradeErrorMessage="A newer version is installed." />
     <MediaTemplate EmbedCab="yes" />
+
     <Feature Id="Main" Level="1">
       <ComponentGroupRef Id="Files" />
       <ComponentRef Id="ShortcutComponent" />
     </Feature>
+
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLDIR" Name="NyxCore ${COMPONENT^}">
-        <ComponentGroup Id="Files" Directory="INSTALLDIR">
-          <!-- Files harvested via heat.exe or manually listed -->
-        </ComponentGroup>
-      </Directory>
+      <Directory Id="INSTALLDIR" Name="NyxCore ${COMPONENT^}" />
     </StandardDirectory>
+
     <StandardDirectory Id="DesktopFolder">
       <Component Id="ShortcutComponent" Guid="*">
         <Shortcut Id="AppShortcut" Name="NyxCore ${COMPONENT^}"
@@ -39,6 +38,10 @@ for COMPONENT in client; do
                        Name="installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </StandardDirectory>
+
+    <ComponentGroup Id="Files" Directory="INSTALLDIR">
+      </ComponentGroup>
+
   </Package>
 </Wix>
 EOF
