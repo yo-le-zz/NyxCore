@@ -13,10 +13,8 @@ permissions:
 env:
   PYTHON_VERSION: "3.13"
 
-# ─────────────────────────────────────────────────────────────────────────────
 jobs:
 
-  # ── 1. Lint & Test ──────────────────────────────────────────────────────────
   test:
     name: Lint & Test
     runs-on: ubuntu-latest
@@ -39,7 +37,6 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/server/ -v
 
-  # ── 2. Build Linux .deb ─────────────────────────────────────────────────────
   build-linux:
     name: Build Linux (.deb)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -77,8 +74,6 @@ jobs:
             --output-filename=nyxcore \
             --include-package=src.client \
             src/client/main.py
-          # Nuitka nomme le dossier .dist d'après le script (main.dist),
-          # on le renomme pour matcher ce qu'attend build_deb.sh
           mv dist/client/main.dist dist/client/nyxcore.dist
 
       - name: Package .deb (client)
@@ -90,8 +85,6 @@ jobs:
           name: linux-deb
           path: dist/*.deb
 
-
-  # ── 4. Release ──────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
     if: github.ref == 'refs/heads/main'

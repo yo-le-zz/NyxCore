@@ -5,7 +5,16 @@ set -euo pipefail
 COMPONENT="${1:-server}"
 VERSION="1.0.0"
 ARCH="amd64"
-PKG_NAME="nyxcore-${COMPONENT}"
+
+# Si c'est le client, on l'appelle simplement "nyxcore" pour éviter la pollution
+if [ "${COMPONENT}" = "client" ]; then
+    PKG_NAME="nyxcore"
+    DISPLAY_NAME="NyxCore"
+else
+    PKG_NAME="nyxcore-${COMPONENT}"
+    DISPLAY_NAME="NyxCore Server"
+fi
+
 PKG_DIR="dist/pkg_${COMPONENT}"
 ICON_PATH="./NyxCore.png"
 
@@ -27,17 +36,17 @@ else
 fi
 
 # ── Copie du binaire compilé ──────────────────────────────────────────────────
-BINARY_DIR="dist/${COMPONENT}/nyxcore-${COMPONENT}.dist"
+BINARY_DIR="dist/${COMPONENT}/nyxcore.dist"
 if [ -d "${BINARY_DIR}" ]; then
     cp -r "${BINARY_DIR}/." "${PKG_DIR}/usr/lib/nyxcore/${COMPONENT}/"
 fi
 
 # ── Script Wrapper (Exécutable principal) ─────────────────────────────────────
-cat > "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}" << EOF
+cat > "${PKG_DIR}/usr/bin/${PKG_NAME}" << EOF
 #!/bin/sh
-exec /usr/lib/nyxcore/${COMPONENT}/nyxcore-${COMPONENT} "\$@"
+exec /usr/lib/nyxcore/${COMPONENT}/nyxcore "\$@"
 EOF
-chmod +x "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}"
+chmod +x "${PKG_DIR}/usr/bin/${PKG_NAME}"
 
 # ── Raccourci d'application (Menu Linux - Client uniquement) ─────────────────
 if [ "${COMPONENT}" = "client" ]; then
@@ -45,17 +54,17 @@ if [ "${COMPONENT}" = "client" ]; then
     cat > "${PKG_DIR}/usr/share/applications/nyxcore.desktop" << EOF
 [Desktop Entry]
 Type=Application
-Name=NyxCore Client
-Comment=NyxCore ISO/OS Hub — Client
+Name=${DISPLAY_NAME}
+Comment=NyxCore ISO/OS Hub
 Exec=/usr/bin/nyxcore
 Icon=nyxcore
 Terminal=false
 Categories=Utility;System;
+StartupWMClass=nyxcore
 EOF
 fi
 
 # ── Fichier Control (Métadonnées) ─────────────────────────────────────────────
-# Note: python3 (>= 3.13) force l'utilisation de Python 3.13 au minimum
 cat > "${PKG_DIR}/DEBIAN/control" << EOF
 Package: ${PKG_NAME}
 Version: ${VERSION}
