@@ -77,6 +77,9 @@ jobs:
             --output-filename=nyxcore-client \
             --include-package=src.client \
             src/client/main.py
+          # Nuitka nomme le dossier .dist d'après le script (main.dist),
+          # on le renomme pour matcher ce qu'attend build_deb.sh
+          mv dist/client/main.dist dist/client/nyxcore-client.dist
 
       - name: Package .deb (client)
         run: bash scripts/build_deb.sh client
@@ -118,6 +121,14 @@ jobs:
             --output-filename=nyxcore-client `
             --include-package=src.client `
             src\client\main.py
+          # Nuitka nomme le dossier .dist d'après le script (main.dist),
+          # on le renomme pour matcher ce qu'attend build_msi.sh
+          Rename-Item -Path dist\client\main.dist -NewName nyxcore-client.dist
+
+      - name: Install WiX v4
+        run: |
+          dotnet tool install --global wix
+          echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build MSI (WiX)
         run: bash scripts/build_msi.sh
