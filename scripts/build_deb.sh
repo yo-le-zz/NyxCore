@@ -7,7 +7,7 @@ VERSION="1.0.0"
 ARCH="amd64"
 PKG_NAME="nyxcore-${COMPONENT}"
 PKG_DIR="dist/pkg_${COMPONENT}"
-ICON_PATH="/home/ilan/Bureau/NyxCore/NyxCore.png"
+ICON_PATH="./nyxcore.png"
 
 echo "[deb] Building ${PKG_NAME}_${VERSION}.deb …"
 
@@ -38,6 +38,21 @@ cat > "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}" << EOF
 exec /usr/lib/nyxcore/${COMPONENT}/nyxcore-${COMPONENT} "\$@"
 EOF
 chmod +x "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}"
+
+# ── Raccourci d'application (Menu Linux - Client uniquement) ─────────────────
+if [ "${COMPONENT}" = "client" ]; then
+    mkdir -p "${PKG_DIR}/usr/share/applications"
+    cat > "${PKG_DIR}/usr/share/applications/nyxcore-client.desktop" << EOF
+[Desktop Entry]
+Type=Application
+Name=NyxCore Client
+Comment=NyxCore ISO/OS Hub — Client
+Exec=/usr/bin/nyxcore-client
+Icon=nyxcore
+Terminal=false
+Categories=Utility;System;
+EOF
+fi
 
 # ── Fichier Control (Métadonnées) ─────────────────────────────────────────────
 # Note: python3 (>= 3.13) force l'utilisation de Python 3.13 au minimum
