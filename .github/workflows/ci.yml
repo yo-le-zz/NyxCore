@@ -1,10 +1,10 @@
 name: NyxCore CI/CD
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  push:
+    branches: [dev]
 
 permissions:
   contents: write
