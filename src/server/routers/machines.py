@@ -1,4 +1,5 @@
 """Machines router — /api/v1/machines — complete REST."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -18,6 +19,7 @@ router = APIRouter()
 
 
 # ── User endpoints ────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/register",
@@ -59,10 +61,13 @@ async def register_machine(
     if user.license_id:
         lic = await db.get(License, user.license_id)
         if lic:
-            count = (await db.execute(
-                select(func.count()).select_from(Machine)
-                .where(Machine.user_id == user.id, Machine.is_banned.is_(False))
-            )).scalar_one()
+            count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(Machine)
+                    .where(Machine.user_id == user.id, Machine.is_banned.is_(False))
+                )
+            ).scalar_one()
             if count >= lic.machines_limit:
                 raise HTTPException(
                     status_code=403,
@@ -129,6 +134,7 @@ async def delete_my_machine(
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────
+
 
 @router.get(
     "/admin/all",

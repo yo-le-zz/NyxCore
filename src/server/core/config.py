@@ -1,4 +1,5 @@
 """NyxCore — centralised settings (pydantic-settings)."""
+
 from __future__ import annotations
 
 import secrets
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     # ── Security ──────────────────────────────────────────────────────────────
     SECRET_KEY: str = secrets.token_urlsafe(64)
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15      # short-lived access tokens
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # short-lived access tokens
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     MASTER_PASSWORD: str = "change_me_in_env"
 
@@ -50,14 +51,14 @@ class Settings(BaseSettings):
     PG_POOL_SIZE: int = 20
     PG_MAX_OVERFLOW: int = 10
     PG_POOL_TIMEOUT: int = 30
-    PG_POOL_RECYCLE: int = 1800   # recycle connections every 30 min
+    PG_POOL_RECYCLE: int = 1800  # recycle connections every 30 min
 
     # Override entire URL (takes precedence over individual params)
     DATABASE_URL: str = ""
 
     # ── Storage ───────────────────────────────────────────────────────────────
     ISO_STORAGE_PATH: str = "./isos"
-    ISO_CHUNK_SIZE_MB: int = 8              # chunk size for resumable uploads
+    ISO_CHUNK_SIZE_MB: int = 8  # chunk size for resumable uploads
     MAX_UPLOAD_SIZE_MB: int = 8192
     DISK_ALERT_THRESHOLD_PCT: float = 90.0
 
@@ -78,9 +79,8 @@ class Settings(BaseSettings):
         """Synchronous URL for Alembic migrations."""
         url = self.effective_database_url
         # asyncpg → psycopg2, aiosqlite → pysqlite
-        return (
-            url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
-               .replace("sqlite+aiosqlite://", "sqlite://")
+        return url.replace("postgresql+asyncpg://", "postgresql+psycopg2://").replace(
+            "sqlite+aiosqlite://", "sqlite://"
         )
 
     @property

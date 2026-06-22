@@ -1,4 +1,5 @@
 """Health & info router — /api/v1/health"""
+
 from __future__ import annotations
 
 import shutil

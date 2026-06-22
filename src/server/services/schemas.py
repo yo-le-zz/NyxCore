@@ -1,4 +1,5 @@
 """Pydantic schemas — licenses, machines, isos, admin, chunks."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,8 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ── Licenses ──────────────────────────────────────────────────────────────────
+
 
 class LicenseCreate(BaseModel):
     owner: str | None = Field(None, max_length=64)
@@ -31,6 +32,7 @@ class LicenseRevoke(BaseModel):
 
 
 # ── Machines ──────────────────────────────────────────────────────────────────
+
 
 class MachineRegister(BaseModel):
     hardware_id: str = Field(..., min_length=4, max_length=128)
@@ -59,6 +61,7 @@ class MachineBan(BaseModel):
 
 # ── ISOs ──────────────────────────────────────────────────────────────────────
 
+
 class ISOOut(BaseModel):
     file_name: str
     file_size: int
@@ -77,10 +80,13 @@ class UploadOut(BaseModel):
 
 # ── Chunked upload schemas ────────────────────────────────────────────────────
 
+
 class ChunkUploadInit(BaseModel):
     filename: str = Field(..., min_length=1, max_length=200)
     total_size: int = Field(..., gt=0, description="Total file size in bytes")
-    sha256: str | None = Field(None, min_length=64, max_length=64, description="Expected SHA-256 hex of the complete file")
+    sha256: str | None = Field(
+        None, min_length=64, max_length=64, description="Expected SHA-256 hex of the complete file"
+    )
 
 
 class ChunkUploadInitResponse(BaseModel):
@@ -99,6 +105,7 @@ class ChunkStatus(BaseModel):
 
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
+
 
 class AdminStats(BaseModel):
     total_users: int

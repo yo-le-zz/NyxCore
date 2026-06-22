@@ -1,6 +1,7 @@
 """
 Admin router — /admin (web panel) + /admin/api (REST)
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -54,13 +55,21 @@ def _require_session(admin_session: str | None = Cookie(default=None)):
 
 
 async def _get_stats(db: AsyncSession) -> dict:
-    users    = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    lics     = (await db.execute(select(func.count()).select_from(License))).scalar_one()
-    active_l = (await db.execute(select(func.count()).select_from(License).where(License.status == "active"))).scalar_one()
+    users = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+    lics = (await db.execute(select(func.count()).select_from(License))).scalar_one()
+    active_l = (
+        await db.execute(
+            select(func.count()).select_from(License).where(License.status == "active")
+        )
+    ).scalar_one()
     machines = (await db.execute(select(func.count()).select_from(Machine))).scalar_one()
-    banned   = (await db.execute(select(func.count()).select_from(Machine).where(Machine.is_banned.is_(True)))).scalar_one()
-    uploads  = (await db.execute(select(func.count()).select_from(Upload))).scalar_one()
-    usage    = shutil.disk_usage(str(settings.iso_path))
+    banned = (
+        await db.execute(
+            select(func.count()).select_from(Machine).where(Machine.is_banned.is_(True))
+        )
+    ).scalar_one()
+    uploads = (await db.execute(select(func.count()).select_from(Upload))).scalar_one()
+    usage = shutil.disk_usage(str(settings.iso_path))
     used_pct = round((usage.used / usage.total) * 100, 1)
     return {
         "total_users": users,
@@ -78,6 +87,7 @@ async def _get_stats(db: AsyncSession) -> dict:
 
 # ── Web panel ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     return templates.TemplateResponse(request, "admin/login.html", {"error": ""})
@@ -91,8 +101,14 @@ async def login_submit(request: Request, password: str = Form(...)):
         )
     token = _new_session()
     resp = RedirectResponse(url="/admin/", status_code=303)
-    resp.set_cookie("admin_session", token, httponly=True, samesite="strict",
-                    max_age=_SESSION_TTL, secure=not settings.DEBUG)
+    resp.set_cookie(
+        "admin_session",
+        token,
+        httponly=True,
+        samesite="strict",
+        max_age=_SESSION_TTL,
+        secure=not settings.DEBUG,
+    )
     return resp
 
 
@@ -106,42 +122,72 @@ async def logout(admin_session: str | None = Cookie(default=None)):
 
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def dashboard(request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
-    stats  = await _get_stats(db)
-    recent = (await db.execute(select(Upload).order_by(Upload.timestamp.desc()).limit(10))).scalars().all()
-    return templates.TemplateResponse(request, "admin/dashboard.html", {
-        "stats": stats, "recent_uploads": recent,
-    })
+async def dashboard(
+    request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
+    stats = await _get_stats(db)
+    recent = (
+        (await db.execute(select(Upload).order_by(Upload.timestamp.desc()).limit(10)))
+        .scalars()
+        .all()
+    )
+    return templates.TemplateResponse(
+        request,
+        "admin/dashboard.html",
+        {
+            "stats": stats,
+            "recent_uploads": recent,
+        },
+    )
 
 
 @router.get("/users", response_class=HTMLResponse, include_in_schema=False)
-async def users_page(request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
+async def users_page(
+    request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
     users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
-    lics  = {l.id: l for l in (await db.execute(select(License))).scalars().all()}
-    return templates.TemplateResponse(request, "admin/users.html", {
-        "users": users, "licenses": lics,
-    })
+    lics = {l.id: l for l in (await db.execute(select(License))).scalars().all()}
+    return templates.TemplateResponse(
+        request,
+        "admin/users.html",
+        {
+            "users": users,
+            "licenses": lics,
+        },
+    )
 
 
 @router.get("/licenses", response_class=HTMLResponse, include_in_schema=False)
-async def licenses_page(request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
+async def licenses_page(
+    request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
     lics = (await db.execute(select(License).order_by(License.created_at.desc()))).scalars().all()
     return templates.TemplateResponse(request, "admin/licenses.html", {"licenses": lics})
 
 
 @router.get("/machines", response_class=HTMLResponse, include_in_schema=False)
-async def machines_page(request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
-    machines = (await db.execute(select(Machine).order_by(Machine.last_seen.desc()))).scalars().all()
-    users    = {u.id: u for u in (await db.execute(select(User))).scalars().all()}
-    return templates.TemplateResponse(request, "admin/machines.html", {
-        "machines": machines, "users": users,
-    })
+async def machines_page(
+    request: Request, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
+    machines = (
+        (await db.execute(select(Machine).order_by(Machine.last_seen.desc()))).scalars().all()
+    )
+    users = {u.id: u for u in (await db.execute(select(User))).scalars().all()}
+    return templates.TemplateResponse(
+        request,
+        "admin/machines.html",
+        {
+            "machines": machines,
+            "users": users,
+        },
+    )
 
 
 @router.get("/isos", response_class=HTMLResponse, include_in_schema=False)
 async def isos_page(request: Request, session=Depends(_require_session)):
     from src.server.services import iso_storage
-    raw   = iso_storage.list_complete()
+
+    raw = iso_storage.list_complete()
     files = [
         {
             "file_name": f["file_name"],
@@ -155,8 +201,11 @@ async def isos_page(request: Request, session=Depends(_require_session)):
 
 # ── Form actions ───────────────────────────────────────────────────────────────
 
+
 @router.post("/users/{user_id}/toggle", include_in_schema=False)
-async def toggle_user(user_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
+async def toggle_user(
+    user_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
     user = await db.get(User, user_id)
     if user:
         user.is_active = not user.is_active
@@ -178,7 +227,9 @@ async def ban_machine_web(
 
 
 @router.post("/machines/{machine_id}/unban", include_in_schema=False)
-async def unban_machine_web(machine_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
+async def unban_machine_web(
+    machine_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
     machine = await db.get(Machine, machine_id)
     if machine:
         machine.is_banned = False
@@ -199,7 +250,9 @@ async def create_license_web(
 
 
 @router.post("/licenses/{license_id}/revoke", include_in_schema=False)
-async def revoke_license_web(license_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)):
+async def revoke_license_web(
+    license_id: int, session=Depends(_require_session), db: AsyncSession = Depends(get_db)
+):
     lic = await db.get(License, license_id)
     if lic:
         lic.status = "revoked"
@@ -208,14 +261,19 @@ async def revoke_license_web(license_id: int, session=Depends(_require_session),
 
 # ── REST (Bearer) ──────────────────────────────────────────────────────────────
 
+
 @router.get("/api/stats", response_model=AdminStats, dependencies=[Depends(require_admin)])
 async def api_stats(db: AsyncSession = Depends(get_db)):
     s = await _get_stats(db)
     return AdminStats(
-        total_users=s["total_users"], total_licenses=s["total_licenses"],
-        total_machines=s["total_machines"], total_uploads=s["total_uploads"],
-        disk_used_gb=s["disk_used_gb"], disk_total_gb=s["disk_total_gb"],
-        disk_used_pct=s["disk_used_pct"], alert=s["disk_alert"],
+        total_users=s["total_users"],
+        total_licenses=s["total_licenses"],
+        total_machines=s["total_machines"],
+        total_uploads=s["total_uploads"],
+        disk_used_gb=s["disk_used_gb"],
+        disk_total_gb=s["disk_total_gb"],
+        disk_used_pct=s["disk_used_pct"],
+        alert=s["disk_alert"],
     )
 
 
@@ -223,9 +281,14 @@ async def api_stats(db: AsyncSession = Depends(get_db)):
 async def api_users(db: AsyncSession = Depends(get_db)):
     users = (await db.execute(select(User).order_by(User.id))).scalars().all()
     return [
-        {"id": u.id, "username": u.username, "is_active": u.is_active,
-         "license_id": u.license_id, "created_at": u.created_at.isoformat(),
-         "last_login": u.last_login.isoformat() if u.last_login else None}
+        {
+            "id": u.id,
+            "username": u.username,
+            "is_active": u.is_active,
+            "license_id": u.license_id,
+            "created_at": u.created_at.isoformat(),
+            "last_login": u.last_login.isoformat() if u.last_login else None,
+        }
         for u in users
     ]
 
@@ -241,22 +304,40 @@ async def api_toggle_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/api/machines", dependencies=[Depends(require_admin)])
 async def api_machines(db: AsyncSession = Depends(get_db)):
-    machines = (await db.execute(select(Machine).order_by(Machine.last_seen.desc()))).scalars().all()
+    machines = (
+        (await db.execute(select(Machine).order_by(Machine.last_seen.desc()))).scalars().all()
+    )
     return [
-        {"id": m.id, "user_id": m.user_id, "hardware_id": m.hardware_id,
-         "hostname": m.hostname, "ip": m.ip, "os_info": m.os_info,
-         "is_banned": m.is_banned, "ban_reason": m.ban_reason,
-         "last_seen": m.last_seen.isoformat()}
+        {
+            "id": m.id,
+            "user_id": m.user_id,
+            "hardware_id": m.hardware_id,
+            "hostname": m.hostname,
+            "ip": m.ip,
+            "os_info": m.os_info,
+            "is_banned": m.is_banned,
+            "ban_reason": m.ban_reason,
+            "last_seen": m.last_seen.isoformat(),
+        }
         for m in machines
     ]
 
 
 @router.get("/api/uploads", dependencies=[Depends(require_admin)])
 async def api_uploads(db: AsyncSession = Depends(get_db)):
-    uploads = (await db.execute(select(Upload).order_by(Upload.timestamp.desc()).limit(500))).scalars().all()
+    uploads = (
+        (await db.execute(select(Upload).order_by(Upload.timestamp.desc()).limit(500)))
+        .scalars()
+        .all()
+    )
     return [
-        {"id": u.id, "user_id": u.user_id, "file_name": u.file_name,
-         "file_size": u.file_size, "action": u.action,
-         "timestamp": u.timestamp.isoformat()}
+        {
+            "id": u.id,
+            "user_id": u.user_id,
+            "file_name": u.file_name,
+            "file_size": u.file_size,
+            "action": u.action,
+            "timestamp": u.timestamp.isoformat(),
+        }
         for u in uploads
     ]

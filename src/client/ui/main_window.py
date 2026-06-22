@@ -1,9 +1,10 @@
 """Main window — NyxCore ISO hub."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -142,8 +143,7 @@ class MainWindow(QMainWindow):
 
     def _upload_iso(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select ISO File", str(Path.home()),
-            "ISO Files (*.iso *.img);;All Files (*)"
+            self, "Select ISO File", str(Path.home()), "ISO Files (*.iso *.img);;All Files (*)"
         )
         if not path:
             return
@@ -168,7 +168,9 @@ class MainWindow(QMainWindow):
             return
         filename = items[0].data(Qt.ItemDataRole.UserRole)
 
-        dest_dir = QFileDialog.getExistingDirectory(self, "Select Download Folder", str(Path.home()))
+        dest_dir = QFileDialog.getExistingDirectory(
+            self, "Select Download Folder", str(Path.home())
+        )
         if not dest_dir:
             return
 

@@ -1,4 +1,5 @@
 """Persistent session (server URL, token) stored in user config dir."""
+
 from __future__ import annotations
 
 import json
@@ -11,12 +12,14 @@ _SESSION_FILE = _CONFIG_DIR / "session.json"
 def save_session(server_url: str, access_token: str, refresh_token: str, username: str):
     _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     _SESSION_FILE.write_text(
-        json.dumps({
-            "server_url": server_url,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "username": username,
-        }),
+        json.dumps(
+            {
+                "server_url": server_url,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "username": username,
+            }
+        ),
         encoding="utf-8",
     )
 

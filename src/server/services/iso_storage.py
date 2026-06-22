@@ -15,11 +15,11 @@ Layout on disk:
             ├── 000001
             └── ...
 """
+
 from __future__ import annotations
 
 import hashlib
 import logging
-import os
 import shutil
 from pathlib import Path
 
@@ -47,6 +47,7 @@ def _chunk_path(upload_id: str, chunk_index: int) -> Path:
 
 
 # ── Write ─────────────────────────────────────────────────────────────────────
+
 
 async def save_chunk(upload_id: str, chunk_index: int, data: bytes) -> None:
     path = _chunk_path(upload_id, chunk_index)
@@ -103,6 +104,7 @@ def cleanup_staging(upload_id: str) -> None:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
+
 def complete_path(filename: str) -> Path:
     return _complete_dir() / filename
 
@@ -112,11 +114,13 @@ def list_complete() -> list[dict]:
     for f in _complete_dir().iterdir():
         if f.is_file():
             stat = f.stat()
-            files.append({
-                "file_name": f.name,
-                "file_size": stat.st_size,
-                "mtime": stat.st_mtime,
-            })
+            files.append(
+                {
+                    "file_name": f.name,
+                    "file_size": stat.st_size,
+                    "mtime": stat.st_mtime,
+                }
+            )
     return sorted(files, key=lambda x: x["mtime"], reverse=True)
 
 

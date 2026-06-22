@@ -10,6 +10,7 @@ Threat model addressed:
   4. Access token scope   → 15 min TTL (short window if stolen)
   5. Timing attacks       → secrets.compare_digest everywhere
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,11 +32,13 @@ _bearer = HTTPBearer(auto_error=True)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
 # ── Password (SHA-512 + random salt) ─────────────────────────────────────────
+
 
 def hash_password(plain: str) -> str:
     salt = secrets.token_hex(32)
@@ -55,6 +58,7 @@ def verify_password(plain: str, stored: str) -> bool:
 
 
 # ── JWT (access token — short-lived, stateless) ───────────────────────────────
+
 
 def create_access_token(subject: str) -> str:
     """
@@ -84,6 +88,7 @@ def decode_token(token: str) -> dict:
 
 
 # ── Refresh token (stateful — stored as hash in DB) ───────────────────────────
+
 
 async def create_refresh_token(
     user_id: int,
@@ -162,9 +167,7 @@ async def consume_refresh_token(
     user_id: int = int(payload["sub"])
 
     # 2. Look up DB record by JTI
-    result = await db.execute(
-        select(RefreshToken).where(RefreshToken.jti == jti)
-    )
+    result = await db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
     record = result.scalar_one_or_none()
 
     if record is None:
@@ -178,7 +181,9 @@ async def consume_refresh_token(
             .where(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False))
             .values(revoked=True)
         )
-        await db.commit()   # must commit immediately — nuclear revoke must be visible to next request
+        await (
+            db.commit()
+        )  # must commit immediately — nuclear revoke must be visible to next request
         raise HTTPException(
             status_code=401,
             detail="Refresh token reuse detected — all sessions invalidated",
@@ -217,6 +222,7 @@ async def revoke_all_user_tokens(user_id: int, db: AsyncSession) -> None:
 
 
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
+
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Security(_bearer)],

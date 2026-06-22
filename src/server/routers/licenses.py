@@ -1,4 +1,5 @@
 """Licenses router — /api/v1/licenses — complete REST."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -17,6 +18,7 @@ router = APIRouter()
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────
+
 
 @router.post(
     "/",
@@ -132,6 +134,7 @@ async def delete_license(license_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # ── Authenticated user endpoints ──────────────────────────────────────────────
+
 
 @router.get(
     "/check/{key}",

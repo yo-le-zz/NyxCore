@@ -1,4 +1,5 @@
 """Qt worker threads for non-blocking API operations."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import QThread, Signal
@@ -42,7 +43,7 @@ class RegisterWorker(QThread):
 
 
 class UploadWorker(QThread):
-    progress = Signal(int)   # percentage 0-100
+    progress = Signal(int)  # percentage 0-100
     success = Signal(str)
     error = Signal(str)
 
@@ -53,6 +54,7 @@ class UploadWorker(QThread):
 
     def run(self):
         try:
+
             def _cb(sent, total):
                 if total:
                     self.progress.emit(int(sent * 100 / total))
@@ -64,7 +66,7 @@ class UploadWorker(QThread):
 
 
 class DownloadWorker(QThread):
-    progress = Signal(int)   # percentage 0-100
+    progress = Signal(int)  # percentage 0-100
     success = Signal(str)
     error = Signal(str)
 
@@ -76,6 +78,7 @@ class DownloadWorker(QThread):
 
     def run(self):
         try:
+
             def _cb(recv, total):
                 if total:
                     self.progress.emit(int(recv * 100 / total))

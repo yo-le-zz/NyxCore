@@ -1,4 +1,5 @@
 """RefreshToken ORM model — stored tokens with JTI for rotation + revocation."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -29,4 +30,4 @@ class RefreshToken(Base):
     # IP that was used when this token was issued — for audit
     issued_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
-    user: Mapped["User"] = relationship("User")  # noqa: F821
+    user: Mapped[User] = relationship("User")  # noqa: F821

@@ -1,4 +1,5 @@
 """User ORM model."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -24,6 +25,10 @@ class User(Base):
     )
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    license: Mapped["License | None"] = relationship("License", back_populates="users")  # noqa: F821
-    machines: Mapped[list["Machine"]] = relationship("Machine", back_populates="user", cascade="all, delete-orphan")  # noqa: F821
-    uploads: Mapped[list["Upload"]] = relationship("Upload", back_populates="user", cascade="all, delete-orphan")  # noqa: F821
+    license: Mapped[License | None] = relationship("License", back_populates="users")  # noqa: F821
+    machines: Mapped[list[Machine]] = relationship(
+        "Machine", back_populates="user", cascade="all, delete-orphan"
+    )  # noqa: F821
+    uploads: Mapped[list[Upload]] = relationship(
+        "Upload", back_populates="user", cascade="all, delete-orphan"
+    )  # noqa: F821
