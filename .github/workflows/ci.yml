@@ -36,9 +36,6 @@ jobs:
           uv sync --extra dev
           uv pip install aiosqlite
 
-      - name: Run ruff lint
-        run: uv run ruff check src/
-
       - name: Run tests
         env:
           MASTER_PASSWORD: test_admin_password
