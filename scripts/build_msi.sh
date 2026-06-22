@@ -7,18 +7,17 @@ echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
 for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
-    # Dossier généré par Nuitka contenant l'exécutable et ses dépendances
+    # Dossier réel créé par Nuitka contenant l'exécutable et ses dépendances
     SRC_DIR="dist/${COMPONENT}/main.dist"
 
     # Conversion des slashs pour le format de chemin Windows exigé par WiX
     SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
-    # Génération du fichier source WiX v4 (Utilise le namespace 'util' requis pour <Files>)
+    # Génération du fichier source WiX v4 ultra-propre (sans extension requise)
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
-     
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  
   <Package Name="NyxCore ${COMPONENT^}" Version="${VERSION}" Manufacturer="yolezz"
            UpgradeCode="4a5c6e7d-8f9a-0b1c-2d3e-4f5a6b7c8d9e"
            Language="1033" Codepage="1252">
@@ -45,18 +44,17 @@ for COMPONENT in client; do
       </Component>
     </StandardDirectory>
 
-    <ComponentGroup Id="Files" Directory="INSTALLDIR">
-      <Files Include="${SRC_DIR_WIN}\\**" />
-    </ComponentGroup>
+    <ComponentGroup Id="Files" Directory="INSTALLDIR" />
 
   </Package>
 </Wix>
 EOF
 
-    # Build du MSI avec WiX v4 en incluant l'extension UTIL indispensable pour <Files>
+    # Build du MSI avec WiX v4
     if command -v wix &>/dev/null; then
         echo "[msi] Compilation du pack avec WiX v4..."
-        wix build "dist/${COMPONENT}.wxs" -ext WixToolset.Util.Extension -o "dist/${PKG_NAME}-${VERSION}.msi"
+        # On passe directement le dossier Nuitka au build WiX en lui demandant de l'associer au groupe 'Files'
+        wix build "dist/${COMPONENT}.wxs" -cg Files -o "dist/${PKG_NAME}-${VERSION}.msi" "${SRC_DIR_WIN}"
     else
         echo "[ERROR] WiX Toolset v4 non trouvé." >&2
         exit 1
