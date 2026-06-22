@@ -1,8 +1,15 @@
-# 🌑 NyxCore v1.0.0
+<div align="center">
+  <img src="https://raw.githubusercontent.com/yo-le-zz/NyxCore/main/NyxCore.png" width="180" height="180" alt="NyxCore Logo" />
 
-**ISO / OS HUB Platform** — License management, user control, machine tracking, secure ISO distribution.
+  # 🌑 NyxCore v1.0.0
 
-[![Logo](https://github.com/yo-le-zz/NyxCore/blob/main/NyxCore.png)]
+  **Nom du projet :** NyxCore  
+  **Auteur :** yolezz  
+  **Environnement :** Python 3.13.x  
+  **Description :** NyxCore is a software that allows for a huge HUB of different ISO operating systems.
+
+  *ISO / OS HUB Platform — License management, user control, machine tracking, secure ISO distribution.*
+</div>
 
 ---
 
