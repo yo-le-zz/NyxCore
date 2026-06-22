@@ -7,14 +7,18 @@ echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
 for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
-    SRC_DIR="dist\\${COMPONENT}\\nyxcore-${COMPONENT}.dist"
+    # Dossier généré par Nuitka contenant l'exécutable et toutes les DLLs/dépendances
+    SRC_DIR="dist/${COMPONENT}/nyxcore-${COMPONENT}.dist"
+
+    # On s'assure que le chemin est au format Windows pour WiX (remplacement des / par des \)
+    SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
     # Generate WiX source
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="NyxCore ${COMPONENT^}" Version="${VERSION}" Manufacturer="yolezz"
-           UpgradeCode="$(python -c "import uuid; print(uuid.uuid4())")"
+           UpgradeCode="4a5c6e7d-8f9a-0b1c-2d3e-4f5a6b7c8d9e"
            Language="1033" Codepage="1252">
     <MajorUpgrade DowngradeErrorMessage="A newer version is installed." />
     <MediaTemplate EmbedCab="yes" />
@@ -40,25 +44,21 @@ for COMPONENT in client; do
     </StandardDirectory>
 
     <ComponentGroup Id="Files" Directory="INSTALLDIR">
-      </ComponentGroup>
+      <Files Include="${SRC_DIR_WIN}\\**" />
+    </ComponentGroup>
 
   </Package>
 </Wix>
 EOF
 
-    # Harvest files
-    if command -v heat &>/dev/null; then
-        heat dir "${SRC_DIR}" -cg Files -dr INSTALLDIR -scom -sfrag -srd \
-            -sreg -gg -o "dist/${COMPONENT}_files.wxs" 2>/dev/null || true
-    fi
-
-    # Build MSI
+    # Build MSI avec WiX v4
     if command -v wix &>/dev/null; then
-        wix build "dist/${COMPONENT}.wxs" -o "dist/${PKG_NAME}-${VERSION}.msi" || true
-    elif command -v candle &>/dev/null; then
-        candle "dist/${COMPONENT}.wxs" -o "dist/${COMPONENT}.wixobj"
-        light "dist/${COMPONENT}.wixobj" -o "dist/${PKG_NAME}-${VERSION}.msi"
+        echo "[msi] Compilation du pack avec WiX v4..."
+        wix build "dist/${COMPONENT}.wxs" -o "dist/${PKG_NAME}-${VERSION}.msi"
+    else
+        echo "[ERROR] WiX Toolset v4 non trouvé." >&2
+        exit 1
     fi
 
-    echo "[msi] ${PKG_NAME}-${VERSION}.msi done (or skipped if WiX not found)"
+    echo "[msi] ${PKG_NAME}-${VERSION}.msi terminé avec succès."
 done

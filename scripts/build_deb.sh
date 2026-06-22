@@ -8,7 +8,7 @@ ARCH="amd64"
 PKG_NAME="nyxcore-${COMPONENT}"
 PKG_DIR="dist/pkg_${COMPONENT}"
 
-echo "[deb] Building ${PKG_NAME}_${VERSION}_${ARCH}.deb …"
+echo "[deb] Building ${PKG_NAME}_${VERSION}.deb …"
 
 # ── Directory structure ───────────────────────────────────────────────────────
 rm -rf "${PKG_DIR}"
@@ -76,5 +76,5 @@ EOF
 fi
 
 # ── Build package ─────────────────────────────────────────────────────────────
-fakeroot dpkg-deb --build "${PKG_DIR}" "dist/${PKG_NAME}_${VERSION}_${ARCH}.deb"
-echo "[deb] Done: dist/${PKG_NAME}_${VERSION}_${ARCH}.deb"
+fakeroot dpkg-deb --build "${PKG_DIR}" "dist/${PKG_NAME}_${VERSION}.deb"
+echo "[deb] Done: dist/${PKG_NAME}_${VERSION}.deb"
