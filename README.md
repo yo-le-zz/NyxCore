@@ -2,7 +2,7 @@
 
 **ISO / OS HUB Platform** — License management, user control, machine tracking, secure ISO distribution.
 
-[![CI/CD](https://github.com/yolezz/nyxcore/actions/workflows/ci.yml/badge.svg)](https://github.com/yolezz/nyxcore/actions)
+[![Logo](https://github.com/yo-le-zz/NyxCore/blob/main/NyxCore.png)]
 
 ---
 

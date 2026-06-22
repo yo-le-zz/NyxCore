@@ -7,7 +7,7 @@ VERSION="1.0.0"
 ARCH="amd64"
 PKG_NAME="nyxcore-${COMPONENT}"
 PKG_DIR="dist/pkg_${COMPONENT}"
-ICON_PATH="./nyxcore.png"
+ICON_PATH="./NyxCore.png"
 
 echo "[deb] Building ${PKG_NAME}_${VERSION}.deb …"
 
