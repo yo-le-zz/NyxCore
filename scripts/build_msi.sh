@@ -7,13 +7,13 @@ echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
 for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
-    # Dossier généré par Nuitka
+    # Dossier généré par Nuitka contenant l'exécutable et ses dépendances
     SRC_DIR="dist/${COMPONENT}/main.dist"
 
     # Conversion des slashs pour le format de chemin Windows exigé par WiX
     SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
-    # Génération du fichier source WiX v4 corrigé pour la balise <Files>
+    # Génération du fichier source WiX v4 propre
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
