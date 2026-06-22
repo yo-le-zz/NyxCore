@@ -71,6 +71,7 @@ jobs:
         run: |
           uv run python -m nuitka \
             --standalone \
+            --assume-yes-for-downloads \
             --plugin-enable=pyside6 \
             --output-dir=dist/client \
             --output-filename=nyxcore-client \
@@ -110,6 +111,7 @@ jobs:
         run: |
           uv run python -m nuitka `
             --standalone `
+            --assume-yes-for-downloads `
             --plugin-enable=pyside6 `
             --windows-console-mode=disable `
             --output-dir=dist\client `
