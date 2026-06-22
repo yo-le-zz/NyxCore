@@ -63,8 +63,9 @@ jobs:
 
       - name: Install uv + deps
         run: |
-          pip install uv nuitka
+          pip install uv
           uv sync
+          uv pip install nuitka
 
       - name: Compile server (Nuitka)
         run: |
@@ -120,8 +121,9 @@ jobs:
 
       - name: Install uv + deps
         run: |
-          pip install uv nuitka
+          pip install uv
           uv sync
+          uv pip install nuitka
 
       - name: Compile server
         run: |
