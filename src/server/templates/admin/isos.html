@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% set active = "isos" %}
+{% block title %}ISOs{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h2>ISO Repository <span style="color:var(--muted);font-weight:400">({{ files|length }} files)</span></h2>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Filename</th>
+        <th>Size</th>
+        <th>Uploaded</th>
+        <th>Download</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td style="color:var(--blue)">
+          <span style="font-size:14px">💿</span>
+          {{ f.file_name }}
+        </td>
+        <td style="color:var(--muted)">
+          {% if f.file_size >= 1073741824 %}
+            {{ "%.2f"|format(f.file_size / 1073741824) }} GB
+          {% else %}
+            {{ "%.1f"|format(f.file_size / 1048576) }} MB
+          {% endif %}
+        </td>
+        <td style="color:var(--muted)">
+          {{ f.uploaded_at or "—" }}
+        </td>
+        <td>
+          <a href="/api/v1/isos/download/{{ f.file_name }}" class="btn" style="padding:4px 10px;font-size:11px">
+            ⬇ Download
+          </a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4">
+          <div class="empty">
+            <div class="ico">💿</div>
+            No ISO files in repository yet.<br>
+            <span style="font-size:11px">Upload via the client or POST /api/v1/isos/upload/init</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px">
+  <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px">Upload Protocol (chunked)</div>
+  <pre style="font-size:11px;color:var(--blue);line-height:1.8">
+POST /api/v1/isos/upload/init              → { upload_id, chunk_size, total_chunks }
+PUT  /api/v1/isos/upload/{id}/chunk/{n}   → raw bytes body (idempotent)
+GET  /api/v1/isos/upload/{id}/status      → { missing_chunks: [...] }
+POST /api/v1/isos/upload/{id}/complete    → assemble + SHA-256 verify
+GET  /api/v1/isos/download/{file}         → full or Range: bytes=X- (resume)</pre>
+</div>
+{% endblock %}

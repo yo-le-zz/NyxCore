@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+{% set active = "dashboard" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+{% if stats.disk_alert %}
+<div class="alert-banner">
+  ⚠ Disk usage critical — {{ stats.disk_used_pct }}% used ({{ stats.disk_used_gb }} GB / {{ stats.disk_total_gb }} GB)
+</div>
+{% endif %}
+
+<!-- ── Stat cards ── -->
+<div class="cards">
+  <div class="card blue">
+    <div class="label">Users</div>
+    <div class="value">{{ stats.total_users }}</div>
+    <div class="sub">registered accounts</div>
+  </div>
+  <div class="card green">
+    <div class="label">Licenses</div>
+    <div class="value">{{ stats.active_licenses }}</div>
+    <div class="sub">{{ stats.total_licenses }} total</div>
+  </div>
+  <div class="card purple">
+    <div class="label">Machines</div>
+    <div class="value">{{ stats.total_machines }}</div>
+    <div class="sub">{{ stats.banned_machines }} banned</div>
+  </div>
+  <div class="card yellow">
+    <div class="label">Transfers</div>
+    <div class="value">{{ stats.total_uploads }}</div>
+    <div class="sub">upload + download logs</div>
+  </div>
+  <div class="card {% if stats.disk_alert %}red{% else %}blue{% endif %}">
+    <div class="label">Disk Usage</div>
+    <div class="value">{{ stats.disk_used_pct }}%</div>
+    <div class="sub">{{ stats.disk_used_gb }} / {{ stats.disk_total_gb }} GB</div>
+    <div class="disk-bar">
+      <div class="disk-bar-fill {% if stats.disk_used_pct >= 90 %}danger{% elif stats.disk_used_pct >= 75 %}warn{% endif %}"
+           style="width:{{ stats.disk_used_pct }}%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Recent transfers ── -->
+<div class="section-header">
+  <h2>Recent Transfers</h2>
+  <a href="/admin/isos" class="btn">View ISOs</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>User ID</th>
+        <th>File</th>
+        <th>Action</th>
+        <th>Size</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in recent_uploads %}
+      <tr>
+        <td style="color:var(--muted)">{{ u.id }}</td>
+        <td>{{ u.user_id }}</td>
+        <td style="color:var(--blue)">{{ u.file_name }}</td>
+        <td>
+          {% if u.action == "upload" %}
+            <span class="badge green">⬆ upload</span>
+          {% elif u.action == "download" %}
+            <span class="badge blue">⬇ download</span>
+          {% else %}
+            <span class="badge red">✕ delete</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted)">{{ "%.1f"|format(u.file_size / 1048576) }} MB</td>
+        <td style="color:var(--muted)">{{ u.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6"><div class="empty"><div class="ico">📭</div>No transfers yet</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Quick links ── -->
+<div class="section-header" style="margin-top:24px">
+  <h2>Quick Actions</h2>
+</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap">
+  <a href="/admin/licenses" class="btn primary">+ Create License</a>
+  <a href="/admin/users" class="btn">Manage Users</a>
+  <a href="/admin/machines" class="btn">Manage Machines</a>
+  <a href="/admin/isos" class="btn">Browse ISOs</a>
+</div>
+
+{% endblock %}

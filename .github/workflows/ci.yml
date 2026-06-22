@@ -1,0 +1,271 @@
+name: NyxCore CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: "3.13"
+
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── 1. Lint & Test ──────────────────────────────────────────────────────────
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+          uv pip install aiosqlite
+
+      - name: Run ruff lint
+        run: uv run ruff check src/
+
+      - name: Run tests
+        env:
+          MASTER_PASSWORD: test_admin_password
+          DATABASE_URL: "sqlite+aiosqlite:///./test_nyxcore.db"
+          SECRET_KEY: "ci_test_secret_key_not_for_production_use_at_all"
+        run: |
+          uv run pytest tests/server/ -v --cov=src/server --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+        continue-on-error: true
+
+  # ── 2. Auto PR: dev → main ──────────────────────────────────────────────────
+  auto-pr:
+    name: Auto PR dev → main
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create PR dev → main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "chore: merge dev into main (auto)" \
+            --body "Automated PR from dev branch after passing CI." \
+            || echo "PR already exists or branch is up-to-date"
+
+  # ── 3. Build Linux .deb ─────────────────────────────────────────────────────
+  build-linux:
+    name: Build Linux (.deb)
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1 libglib2.0-0 libxcb-cursor0 \
+            libxcb-xinerama0 libxcb-randr0 \
+            fakeroot dpkg-dev patchelf
+
+      - name: Install uv + deps
+        run: |
+          pip install uv nuitka
+          uv sync
+
+      - name: Compile server (Nuitka)
+        run: |
+          uv run python -m nuitka \
+            --standalone \
+            --output-dir=dist/server \
+            --output-filename=nyxcore-server \
+            --include-package=src.server \
+            --include-package=fastapi \
+            --include-package=uvicorn \
+            --include-package=sqlalchemy \
+            --include-package=jose \
+            --include-package=passlib \
+            --include-package=aiofiles \
+            --include-package=pydantic \
+            src/server/main.py
+
+      - name: Compile client (Nuitka + PySide6)
+        run: |
+          uv run python -m nuitka \
+            --standalone \
+            --plugin-enable=pyside6 \
+            --output-dir=dist/client \
+            --output-filename=nyxcore-client \
+            --include-package=src.client \
+            src/client/main.py
+
+      - name: Package .deb (server)
+        run: bash scripts/build_deb.sh server
+
+      - name: Package .deb (client)
+        run: bash scripts/build_deb.sh client
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: dist/*.deb
+
+  # ── 4. Build Windows .msi ───────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows (.msi)
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv + deps
+        run: |
+          pip install uv nuitka
+          uv sync
+
+      - name: Compile server
+        run: |
+          uv run python -m nuitka `
+            --standalone `
+            --output-dir=dist\server `
+            --output-filename=nyxcore-server `
+            --include-package=src.server `
+            --include-package=fastapi `
+            --include-package=uvicorn `
+            --include-package=sqlalchemy `
+            --include-package=jose `
+            --include-package=passlib `
+            --include-package=aiofiles `
+            --include-package=pydantic `
+            src\server\main.py
+
+      - name: Compile client
+        run: |
+          uv run python -m nuitka `
+            --standalone `
+            --plugin-enable=pyside6 `
+            --windows-console-mode=disable `
+            --output-dir=dist\client `
+            --output-filename=nyxcore-client `
+            --include-package=src.client `
+            src\client\main.py
+
+      - name: Build MSI (WiX)
+        run: bash scripts/build_msi.sh
+        shell: bash
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi
+          path: dist/*.msi
+
+  # ── 5. Release ──────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    if: github.ref == 'refs/heads/main'
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from commit message
+        id: version
+        run: |
+          MSG="${{ github.event.head_commit.message }}"
+          VERSION=$(echo "$MSG" | grep -oP '\d+\.\d+\.\d+' | head -1)
+          if [ -z "$VERSION" ]; then
+            VERSION=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            LOG=$(git log "$PREV_TAG"..HEAD --oneline --no-merges)
+          else
+            LOG=$(git log --oneline --no-merges -20)
+          fi
+          echo "log<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$LOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-deb
+          path: release/
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-msi
+          path: release/
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}" || true
+          git push origin "v${{ steps.version.outputs.version }}" || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: NyxCore v${{ steps.version.outputs.version }}
+          body: |
+            ## NyxCore v${{ steps.version.outputs.version }}
+
+            ### Changes
+            ```
+            ${{ steps.changelog.outputs.log }}
+            ```
+
+            ### Downloads
+            | Platform | Package |
+            |---|---|
+            | Linux | nyxcore-server.deb, nyxcore-client.deb |
+            | Windows | nyxcore-server.msi, nyxcore-client.msi |
+          files: release/*
+          generate_release_notes: false
