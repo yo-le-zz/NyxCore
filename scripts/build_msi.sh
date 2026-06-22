@@ -1,31 +1,37 @@
 #!/usr/bin/env bash
-# build_msi.sh — requires WiX Toolset v4 installed on the Windows runner
 set -euo pipefail
 
-VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')
-echo "[msi] Building NyxCore ${VERSION} MSIs …"
+# Nettoyage propre et simple de la version (votre version initiale validée)
+RAW_VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')
+VERSION=$(echo "${RAW_VERSION}" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
 
-for COMPONENT in client; do
-    PKG_NAME="nyxcore-${COMPONENT}"
-    # Dossier réel créé par Nuitka contenant l'exécutable et ses dépendances
-    SRC_DIR="dist/${COMPONENT}/main.dist"
+echo "=== DIAGNOSTIC WIX v4 ==="
+echo "Version brute : ${RAW_VERSION}"
+echo "Version MSI   : ${VERSION}"
+if command -v wix &>/dev/null; then
+    echo "Version de l'exécutable WiX :"
+    wix --version || true
+else
+    echo "wix n'est pas dans le PATH global du shell"
+fi
+echo "========================="
 
-    # Conversion des slashs pour le format de chemin Windows exigé par WiX
-    SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
+COMPONENT="client"
+PKG_NAME="nyxcore-${COMPONENT}"
 
-    # Génération du fichier source WiX v4 ultra-propre (sans extension requise)
-    cat > "dist/${COMPONENT}.wxs" << EOF
+# Génération d'un schéma XML 100% valide (statique, juste pour valider la compilation)
+cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  
   <Package Name="NyxCore ${COMPONENT^}" Version="${VERSION}" Manufacturer="yolezz"
            UpgradeCode="4a5c6e7d-8f9a-0b1c-2d3e-4f5a6b7c8d9e"
            Language="1033" Codepage="1252">
+    
     <MajorUpgrade DowngradeErrorMessage="A newer version is installed." />
     <MediaTemplate EmbedCab="yes" />
 
     <Feature Id="Main" Level="1">
-      <ComponentGroupRef Id="Files" />
+      <ComponentRef Id="MainExecutableComponent" />
       <ComponentRef Id="ShortcutComponent" />
     </Feature>
 
@@ -36,7 +42,7 @@ for COMPONENT in client; do
     <StandardDirectory Id="DesktopFolder">
       <Component Id="ShortcutComponent" Guid="3b2a1c0d-ef4a-5b6c-7d8e-9f0a1b2c3d4e">
         <Shortcut Id="AppShortcut" Name="NyxCore ${COMPONENT^}"
-                  Target="[INSTALLDIR]nyxcore-client.exe"
+                  Target="[INSTALLDIR]nyxcore-${COMPONENT}.exe"
                   WorkingDirectory="INSTALLDIR" />
         <RemoveFolder Id="RemoveDesktop" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\\NyxCore\\${COMPONENT}"
@@ -44,21 +50,13 @@ for COMPONENT in client; do
       </Component>
     </StandardDirectory>
 
-    <ComponentGroup Id="Files" Directory="INSTALLDIR" />
+    <Component Id="MainExecutableComponent" Guid="1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d" Directory="INSTALLDIR">
+      <File Id="MainExe" Source="dist/${COMPONENT}/main.dist/nyxcore-client.exe" KeyPath="yes" />
+    </Component>
 
   </Package>
 </Wix>
 EOF
 
-    # Build du MSI avec WiX v4
-    if command -v wix &>/dev/null; then
-        echo "[msi] Compilation du pack avec WiX v4..."
-        # On passe directement le dossier Nuitka au build WiX en lui demandant de l'associer au groupe 'Files'
-        wix build "dist/${COMPONENT}.wxs" -cg Files -o "dist/${PKG_NAME}-${VERSION}.msi" "${SRC_DIR_WIN}"
-    else
-        echo "[ERROR] WiX Toolset v4 non trouvé." >&2
-        exit 1
-    fi
-
-    echo "[msi] ${PKG_NAME}-${VERSION}.msi terminé avec succès !"
-done
+echo "[wix] Lancement du build de test..."
+wix build "dist/${COMPONENT}.wxs" -o "dist/${PKG_NAME}-${VERSION}.msi"
