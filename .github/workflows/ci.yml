@@ -90,61 +90,12 @@ jobs:
           name: linux-deb
           path: dist/*.deb
 
-  # ── 3. Build Windows .msi ───────────────────────────────────────────────────
-  build-windows:
-    name: Build Windows (.msi)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install uv + deps
-        run: |
-          pip install uv
-          uv sync
-          uv pip install nuitka
-
-      - name: Compile client
-        run: |
-          uv run python -m nuitka `
-            --standalone `
-            --assume-yes-for-downloads `
-            --plugin-enable=pyside6 `
-            --windows-console-mode=disable `
-            --output-dir=dist\client `
-            --output-filename=nyxcore-client `
-            --include-package=src.client `
-            src\client\main.py
-          # Nuitka nomme le dossier .dist d'après le script (main.dist),
-          # on le renomme pour matcher ce qu'attend build_msi.sh
-          Rename-Item -Path dist\client\main.dist -NewName nyxcore-client.dist
-
-      - name: Install WiX v4
-        run: |
-          dotnet tool install --global wix --version 4.0.5
-          echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Build MSI (WiX)
-        run: bash scripts/build_msi.sh
-        shell: bash
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-msi
-          path: dist/*.msi
 
   # ── 4. Release ──────────────────────────────────────────────────────────────
   release:
     name: Create GitHub Release
     if: github.ref == 'refs/heads/main'
-    needs: [build-linux, build-windows]
+    needs: [build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -180,12 +131,6 @@ jobs:
           name: linux-deb
           path: release/
 
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-msi
-          path: release/
-
       - name: Create tag
         run: |
           git config user.name "github-actions[bot]"
@@ -207,10 +152,9 @@ jobs:
             ```
 
             ### Downloads
-            | Platform | Package |
-            |---|---|
-            | Linux | nyxcore-client.deb |
-            | Windows | nyxcore-client.msi |
+            | Platform |       Package      |
+            |----------|--------------------|
+            | Linux    | nyxcore-client.deb |
 
             ### Server
             Le serveur ne se compile pas, il se lance directement avec Python : `uv run python -m src.server.main` (ou via le service systemd installé séparément).
