@@ -10,7 +10,7 @@
 
 ```bash
 # 1. Clone & install
-git clone https://github.com/yolezz/nyxcore.git
+git clone https://github.com/yo-le-zz/NyxCore.git
 cd NyxCore
 uv sync
 

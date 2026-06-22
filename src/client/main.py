@@ -1,11 +1,12 @@
 """NyxCore Client — main entry point."""
+
 from __future__ import annotations
 
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from src.client.services.api import NyxCoreAPI, APIError
+from src.client.services.api import APIError, NyxCoreAPI
 from src.client.utils.hardware import get_hardware_id, get_hostname, get_os_info
 from src.client.utils.session import clear_session, load_session, save_session
 

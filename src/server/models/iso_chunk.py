@@ -1,4 +1,5 @@
 """ISOChunkUpload ORM model — tracks resumable multipart uploads."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -33,4 +34,4 @@ class ISOChunkUpload(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
-    user: Mapped["User"] = relationship("User")  # noqa: F821
+    user: Mapped[User] = relationship("User")  # noqa: F821

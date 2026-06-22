@@ -1,4 +1,5 @@
 """Auth router — /api/v1/auth."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -91,7 +92,9 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_tokens(body: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def refresh_tokens(
+    body: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)
+):
     """
     Token rotation with reuse detection.
     Old refresh token is consumed (one-time use). New pair is issued.

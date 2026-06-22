@@ -5,18 +5,18 @@ Upload protocol: chunked resumable (init → PUT chunks → complete).
 Download protocol: HTTP Range requests for resume.
 Token protocol: access + refresh with automatic rotation + reuse-safe storage.
 """
+
 from __future__ import annotations
 
 import hashlib
-import os
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import requests
 
-ProgressCallback = Callable[[int, int], None]   # (bytes_done, bytes_total)
+ProgressCallback = Callable[[int, int], None]  # (bytes_done, bytes_total)
 
 
 class APIError(Exception):
@@ -139,11 +139,15 @@ class NyxCoreAPI:
     # ── Machines ──────────────────────────────────────────────────────────────
 
     def register_machine(self, hardware_id: str, hostname: str, os_info: str) -> dict:
-        return self._post("/machines/register", {
-            "hardware_id": hardware_id,
-            "hostname": hostname,
-            "os_info": os_info,
-        }, timeout=10)
+        return self._post(
+            "/machines/register",
+            {
+                "hardware_id": hardware_id,
+                "hostname": hostname,
+                "os_info": os_info,
+            },
+            timeout=10,
+        )
 
     # ── ISOs — list / history ─────────────────────────────────────────────────
 
@@ -174,7 +178,9 @@ class NyxCoreAPI:
         total_size = path.stat().st_size
 
         # ── SHA-256 of full file (fast pre-check + server-side verification) ──
-        sha256 = _sha256_file(path, lambda done, tot: progress_callback(done // 2, tot) if progress_callback else None)
+        sha256 = _sha256_file(
+            path, lambda done, tot: progress_callback(done // 2, tot) if progress_callback else None
+        )
 
         # ── Try to resume existing session ────────────────────────────────────
         upload_id: str | None = None
@@ -193,28 +199,36 @@ class NyxCoreAPI:
 
         # ── Init new session ──────────────────────────────────────────────────
         if upload_id is None:
-            init_resp = self._post("/isos/upload/init", {
-                "filename": path.name,
-                "total_size": total_size,
-                "sha256": sha256,
-            }, timeout=15)
+            init_resp = self._post(
+                "/isos/upload/init",
+                {
+                    "filename": path.name,
+                    "total_size": total_size,
+                    "sha256": sha256,
+                },
+                timeout=15,
+            )
             upload_id = init_resp["upload_id"]
             session_file.write_text(upload_id)
             chunk_size = init_resp["chunk_size"]
             total_chunks = init_resp["total_chunks"]
             missing_chunks = list(range(total_chunks))
         else:
-            init_resp = self._post("/isos/upload/init", {
-                "filename": path.name,
-                "total_size": total_size,
-                "sha256": sha256,
-            }, timeout=15)
+            init_resp = self._post(
+                "/isos/upload/init",
+                {
+                    "filename": path.name,
+                    "total_size": total_size,
+                    "sha256": sha256,
+                },
+                timeout=15,
+            )
             chunk_size = init_resp["chunk_size"]
             total_chunks = init_resp["total_chunks"]
 
         # ── Upload missing chunks ─────────────────────────────────────────────
         sent_bytes = (total_chunks - len(missing_chunks)) * chunk_size
-        half_total = total_size // 2   # second half of progress (first half = sha256)
+        half_total = total_size // 2  # second half of progress (first half = sha256)
 
         with open(path, "rb") as f:
             for idx in missing_chunks:
@@ -230,7 +244,7 @@ class NyxCoreAPI:
                     except (requests.ConnectionError, requests.Timeout) as e:
                         if attempt == 2:
                             raise APIError(f"Chunk {idx} failed after 3 attempts: {e}")
-                        time.sleep(2 ** attempt)
+                        time.sleep(2**attempt)
 
                 sent_bytes += len(data)
                 if progress_callback:
@@ -290,6 +304,7 @@ class NyxCoreAPI:
 
 
 # ── Utility ───────────────────────────────────────────────────────────────────
+
 
 def _sha256_file(path: Path, progress_callback: ProgressCallback | None = None) -> str:
     sha = hashlib.sha256()

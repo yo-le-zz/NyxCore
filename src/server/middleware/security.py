@@ -1,4 +1,5 @@
 """Add strict security headers to every response."""
+
 from __future__ import annotations
 
 from fastapi import Request, Response

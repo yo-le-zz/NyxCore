@@ -16,16 +16,16 @@ Download with HTTP Range:
   GET /isos/download/{filename}              → full file
   GET /isos/download/{filename} + Range header → partial content (resume)
 """
+
 from __future__ import annotations
 
 import re
 import secrets
 from datetime import UTC, datetime
-from pathlib import Path
 
 import aiofiles
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, status
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,13 @@ from src.server.models.iso_chunk import ISOChunkUpload
 from src.server.models.upload import Upload
 from src.server.models.user import User
 from src.server.services import iso_storage
-from src.server.services.schemas import ISOOut, UploadOut, ChunkUploadInit, ChunkUploadInitResponse, ChunkStatus
+from src.server.services.schemas import (
+    ChunkStatus,
+    ChunkUploadInit,
+    ChunkUploadInitResponse,
+    ISOOut,
+    UploadOut,
+)
 
 router = APIRouter()
 
@@ -54,6 +60,7 @@ def _safe_filename(filename: str) -> str:
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+
 @router.get("/", response_model=list[ISOOut])
 async def list_isos(_: User = Depends(get_current_user)):
     files = iso_storage.list_complete()
@@ -69,7 +76,10 @@ async def list_isos(_: User = Depends(get_current_user)):
 
 # ── Chunked upload — init ─────────────────────────────────────────────────────
 
-@router.post("/upload/init", response_model=ChunkUploadInitResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/upload/init", response_model=ChunkUploadInitResponse, status_code=status.HTTP_201_CREATED
+)
 async def init_chunked_upload(
     body: ChunkUploadInit,
     user: User = Depends(get_current_user),
@@ -78,10 +88,12 @@ async def init_chunked_upload(
     _safe_filename(body.filename)
 
     if body.total_size > settings.max_upload_bytes:
-        raise HTTPException(status_code=413, detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit")
+        raise HTTPException(
+            status_code=413, detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit"
+        )
 
     chunk_size = settings.chunk_size_bytes
-    total_chunks = max(1, -(-body.total_size // chunk_size))   # ceiling division
+    total_chunks = max(1, -(-body.total_size // chunk_size))  # ceiling division
 
     upload_id = secrets.token_urlsafe(32)
 
@@ -106,6 +118,7 @@ async def init_chunked_upload(
 
 # ── Chunked upload — PUT chunk ─────────────────────────────────────────────────
 
+
 @router.put("/upload/{upload_id}/chunk/{chunk_index}", status_code=status.HTTP_200_OK)
 async def upload_chunk(
     upload_id: str,
@@ -126,21 +139,26 @@ async def upload_chunk(
     if record.status == "complete":
         raise HTTPException(status_code=409, detail="Upload already complete")
     if chunk_index < 0 or chunk_index >= record.total_chunks:
-        raise HTTPException(status_code=400, detail=f"chunk_index must be 0..{record.total_chunks - 1}")
+        raise HTTPException(
+            status_code=400, detail=f"chunk_index must be 0..{record.total_chunks - 1}"
+        )
 
     # Skip if chunk already received (idempotent — safe for retries)
     if iso_storage.chunk_exists(upload_id, chunk_index):
         missing = [
-            i for i in range(record.total_chunks)
-            if not iso_storage.chunk_exists(upload_id, i)
+            i for i in range(record.total_chunks) if not iso_storage.chunk_exists(upload_id, i)
         ]
-        return {"received": record.received_chunks, "total_chunks": record.total_chunks, "missing": missing}
+        return {
+            "received": record.received_chunks,
+            "total_chunks": record.total_chunks,
+            "missing": missing,
+        }
 
     # Read raw body
     data = await request.body()
     if not data:
         raise HTTPException(status_code=400, detail="Empty chunk body")
-    if len(data) > settings.chunk_size_bytes * 2:   # 2× headroom for last chunk
+    if len(data) > settings.chunk_size_bytes * 2:  # 2× headroom for last chunk
         raise HTTPException(status_code=413, detail="Chunk too large")
 
     await iso_storage.save_chunk(upload_id, chunk_index, data)
@@ -150,10 +168,7 @@ async def upload_chunk(
     record.updated_at = datetime.now(UTC)
     await db.flush()
 
-    missing = [
-        i for i in range(record.total_chunks)
-        if not iso_storage.chunk_exists(upload_id, i)
-    ]
+    missing = [i for i in range(record.total_chunks) if not iso_storage.chunk_exists(upload_id, i)]
 
     return {
         "received": record.received_chunks,
@@ -163,6 +178,7 @@ async def upload_chunk(
 
 
 # ── Chunked upload — status (resume query) ────────────────────────────────────
+
 
 @router.get("/upload/{upload_id}/status", response_model=ChunkStatus)
 async def upload_status(
@@ -180,10 +196,7 @@ async def upload_status(
     if record is None:
         raise HTTPException(status_code=404, detail="Upload session not found")
 
-    received = [
-        i for i in range(record.total_chunks)
-        if iso_storage.chunk_exists(upload_id, i)
-    ]
+    received = [i for i in range(record.total_chunks) if iso_storage.chunk_exists(upload_id, i)]
     missing = [i for i in range(record.total_chunks) if i not in received]
 
     return ChunkStatus(
@@ -197,6 +210,7 @@ async def upload_status(
 
 
 # ── Chunked upload — complete (assemble + verify) ─────────────────────────────
+
 
 @router.post("/upload/{upload_id}/complete")
 async def complete_upload(
@@ -217,10 +231,7 @@ async def complete_upload(
         return {"file_name": record.filename, "status": "already_complete"}
 
     # Verify all chunks present
-    missing = [
-        i for i in range(record.total_chunks)
-        if not iso_storage.chunk_exists(upload_id, i)
-    ]
+    missing = [i for i in range(record.total_chunks) if not iso_storage.chunk_exists(upload_id, i)]
     if missing:
         raise HTTPException(
             status_code=400,
@@ -267,6 +278,7 @@ async def complete_upload(
 
 # ── Download with HTTP Range support ─────────────────────────────────────────
 
+
 @router.get("/download/{filename}")
 async def download_iso(
     filename: str,
@@ -307,7 +319,9 @@ async def download_iso(
         # Log download (async, don't wait for full transfer)
         log = Upload(user_id=user.id, file_name=filename, file_size=file_size, action="download")
         db.add(log)
-        return StreamingResponse(_range_gen(), status_code=206, headers=headers, media_type=media_type)
+        return StreamingResponse(
+            _range_gen(), status_code=206, headers=headers, media_type=media_type
+        )
 
     # ── Full download ──────────────────────────────────────────────────────────
     async def _full_gen():
@@ -348,6 +362,7 @@ def _parse_range(range_header: str, file_size: int) -> tuple[int, int]:
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
+
 @router.delete("/{filename}")
 async def delete_iso(
     filename: str,
@@ -367,8 +382,11 @@ async def delete_iso(
 
 # ── History ───────────────────────────────────────────────────────────────────
 
+
 @router.get("/history", response_model=list[UploadOut])
-async def upload_history(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def upload_history(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(
         select(Upload).where(Upload.user_id == user.id).order_by(Upload.timestamp.desc()).limit(100)
     )

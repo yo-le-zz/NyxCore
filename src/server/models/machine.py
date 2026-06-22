@@ -1,4 +1,5 @@
 """Machine ORM model."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -29,4 +30,4 @@ class Machine(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="machines")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="machines")  # noqa: F821

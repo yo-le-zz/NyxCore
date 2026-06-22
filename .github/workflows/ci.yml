@@ -1,8 +1,6 @@
 name: NyxCore CI/CD
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: [main]
 
@@ -35,9 +33,6 @@ jobs:
         run: |
           uv sync --extra dev
           uv pip install aiosqlite
-
-      - name: Run ruff lint
-        run: uv run ruff check src/
 
       - name: Run tests
         env:

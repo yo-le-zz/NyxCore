@@ -1,4 +1,5 @@
 """Pydantic schemas — auth."""
+
 from __future__ import annotations
 
 import re
@@ -49,6 +50,7 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     """Body is optional — logout always revokes all sessions for the authenticated user."""
+
     pass
 
 

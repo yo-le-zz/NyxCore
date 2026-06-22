@@ -1,11 +1,11 @@
 """Login & Register dialog — NyxCore client."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from src.client.services.api import NyxCoreAPI, APIError
+from src.client.services.api import NyxCoreAPI
 from src.client.services.workers import LoginWorker, RegisterWorker
 
 STYLE = """

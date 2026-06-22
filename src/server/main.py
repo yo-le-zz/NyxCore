@@ -1,4 +1,5 @@
 """NyxCore Server — main entry point."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,7 +15,7 @@ from src.server.core.config import settings
 from src.server.core.database import init_db
 from src.server.middleware.rate_limit import RateLimitMiddleware
 from src.server.middleware.security import SecurityHeadersMiddleware
-from src.server.routers import auth, licenses, machines, isos, admin, health
+from src.server.routers import admin, auth, health, isos, licenses, machines
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,11 +55,11 @@ app.add_middleware(
 )
 
 # ── API routers ────────────────────────────────────────────────────────────────
-app.include_router(health.router,   prefix="/api/v1",          tags=["health"])
-app.include_router(auth.router,     prefix="/api/v1/auth",     tags=["auth"])
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(licenses.router, prefix="/api/v1/licenses", tags=["licenses"])
 app.include_router(machines.router, prefix="/api/v1/machines", tags=["machines"])
-app.include_router(isos.router,     prefix="/api/v1/isos",     tags=["isos"])
+app.include_router(isos.router, prefix="/api/v1/isos", tags=["isos"])
 
 # ── Admin web panel + REST under /admin ───────────────────────────────────────
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
@@ -71,8 +72,8 @@ async def root():
 
 def run():
     parser = argparse.ArgumentParser(description="NyxCore Server")
-    parser.add_argument("--port",   type=int, default=settings.PORT)
-    parser.add_argument("--host",   type=str, default=settings.HOST)
+    parser.add_argument("--port", type=int, default=settings.PORT)
+    parser.add_argument("--host", type=str, default=settings.HOST)
     parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
 
