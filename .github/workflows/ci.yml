@@ -1,6 +1,8 @@
 name: NyxCore CI/CD
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -35,18 +37,7 @@ jobs:
           uv pip install aiosqlite
 
       - name: Run tests
-        env:
-          MASTER_PASSWORD: test_admin_password
-          DATABASE_URL: "sqlite+aiosqlite:///./test_nyxcore.db"
-          SECRET_KEY: "ci_test_secret_key_not_for_production_use_at_all"
-        run: |
-          uv run pytest tests/server/ -v --cov=src/server --cov-report=xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage.xml
-        continue-on-error: true
+        run: uv run pytest tests/server/ -v
 
   # ── 2. Auto PR: dev → main ──────────────────────────────────────────────────
   auto-pr:
@@ -73,7 +64,7 @@ jobs:
   # ── 3. Build Linux .deb ─────────────────────────────────────────────────────
   build-linux:
     name: Build Linux (.deb)
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -138,7 +129,7 @@ jobs:
   # ── 4. Build Windows .msi ───────────────────────────────────────────────────
   build-windows:
     name: Build Windows (.msi)
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: windows-latest
     steps:
