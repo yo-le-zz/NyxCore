@@ -7,13 +7,13 @@ echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
 for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
-    # Dossier réel créé par Nuitka (main.dist d'après vos logs de compilation)
+    # Dossier généré par Nuitka
     SRC_DIR="dist/${COMPONENT}/main.dist"
 
-    # Conversion des slashs pour le format Windows exigé par WiX
+    # Conversion des slashs pour le format de chemin Windows exigé par WiX
     SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
-    # Génération du fichier source WiX v4
+    # Génération du fichier source WiX v4 corrigé pour la balise <Files>
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -33,7 +33,7 @@ for COMPONENT in client; do
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
-      <Component Id="ShortcutComponent" Guid="*">
+      <Component Id="ShortcutComponent" Guid="3b2a1c0d-ef4a-5b6c-7d8e-9f0a1b2c3d4e">
         <Shortcut Id="AppShortcut" Name="NyxCore ${COMPONENT^}"
                   Target="[INSTALLDIR]nyxcore-client.exe"
                   WorkingDirectory="INSTALLDIR" />
@@ -43,10 +43,8 @@ for COMPONENT in client; do
       </Component>
     </StandardDirectory>
 
-    <ComponentGroup Id="Files">
-      <Component Id="AppFilesComponent" Guid="*" Directory="INSTALLDIR">
-        <Files Include="${SRC_DIR_WIN}\\**" />
-      </Component>
+    <ComponentGroup Id="Files" Directory="INSTALLDIR">
+      <Files Id="AppFilesHarvest" Include="${SRC_DIR_WIN}\\**" />
     </ComponentGroup>
 
   </Package>
