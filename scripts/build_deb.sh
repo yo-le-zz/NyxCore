@@ -42,12 +42,12 @@ chmod +x "${PKG_DIR}/usr/bin/nyxcore-${COMPONENT}"
 # ── Raccourci d'application (Menu Linux - Client uniquement) ─────────────────
 if [ "${COMPONENT}" = "client" ]; then
     mkdir -p "${PKG_DIR}/usr/share/applications"
-    cat > "${PKG_DIR}/usr/share/applications/nyxcore-client.desktop" << EOF
+    cat > "${PKG_DIR}/usr/share/applications/nyxcore.desktop" << EOF
 [Desktop Entry]
 Type=Application
 Name=NyxCore Client
 Comment=NyxCore ISO/OS Hub — Client
-Exec=/usr/bin/nyxcore-client
+Exec=/usr/bin/nyxcore
 Icon=nyxcore
 Terminal=false
 Categories=Utility;System;

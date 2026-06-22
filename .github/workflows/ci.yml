@@ -74,12 +74,12 @@ jobs:
             --assume-yes-for-downloads \
             --plugin-enable=pyside6 \
             --output-dir=dist/client \
-            --output-filename=nyxcore-client \
+            --output-filename=nyxcore \
             --include-package=src.client \
             src/client/main.py
           # Nuitka nomme le dossier .dist d'après le script (main.dist),
           # on le renomme pour matcher ce qu'attend build_deb.sh
-          mv dist/client/main.dist dist/client/nyxcore-client.dist
+          mv dist/client/main.dist dist/client/nyxcore.dist
 
       - name: Package .deb (client)
         run: bash scripts/build_deb.sh client
@@ -154,7 +154,7 @@ jobs:
             ### Downloads
             | Platform |       Package      |
             |----------|--------------------|
-            | Linux    | nyxcore-client.deb |
+            | Linux    | nyxcore.deb |
 
             ### Server
             Le serveur ne se compile pas, il se lance directement avec Python : `uv run python -m src.server.main` (ou via le service systemd installé séparément).
