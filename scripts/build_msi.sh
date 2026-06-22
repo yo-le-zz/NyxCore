@@ -5,7 +5,7 @@ set -euo pipefail
 VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*= *"\(.*\)"/\1/')
 echo "[msi] Building NyxCore ${VERSION} MSIs …"
 
-for COMPONENT in server client; do
+for COMPONENT in client; do
     PKG_NAME="nyxcore-${COMPONENT}"
     SRC_DIR="dist\\${COMPONENT}\\nyxcore-${COMPONENT}.dist"
 

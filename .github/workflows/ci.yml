@@ -67,22 +67,6 @@ jobs:
           uv sync
           uv pip install nuitka
 
-      - name: Compile server (Nuitka)
-        run: |
-          uv run python -m nuitka \
-            --standalone \
-            --output-dir=dist/server \
-            --output-filename=nyxcore-server \
-            --include-package=src.server \
-            --include-package=fastapi \
-            --include-package=uvicorn \
-            --include-package=sqlalchemy \
-            --include-package=jose \
-            --include-package=passlib \
-            --include-package=aiofiles \
-            --include-package=pydantic \
-            src/server/main.py
-
       - name: Compile client (Nuitka + PySide6)
         run: |
           uv run python -m nuitka \
@@ -92,9 +76,6 @@ jobs:
             --output-filename=nyxcore-client \
             --include-package=src.client \
             src/client/main.py
-
-      - name: Package .deb (server)
-        run: bash scripts/build_deb.sh server
 
       - name: Package .deb (client)
         run: bash scripts/build_deb.sh client
@@ -124,22 +105,6 @@ jobs:
           pip install uv
           uv sync
           uv pip install nuitka
-
-      - name: Compile server
-        run: |
-          uv run python -m nuitka `
-            --standalone `
-            --output-dir=dist\server `
-            --output-filename=nyxcore-server `
-            --include-package=src.server `
-            --include-package=fastapi `
-            --include-package=uvicorn `
-            --include-package=sqlalchemy `
-            --include-package=jose `
-            --include-package=passlib `
-            --include-package=aiofiles `
-            --include-package=pydantic `
-            src\server\main.py
 
       - name: Compile client
         run: |
@@ -231,7 +196,10 @@ jobs:
             ### Downloads
             | Platform | Package |
             |---|---|
-            | Linux | nyxcore-server.deb, nyxcore-client.deb |
-            | Windows | nyxcore-server.msi, nyxcore-client.msi |
+            | Linux | nyxcore-client.deb |
+            | Windows | nyxcore-client.msi |
+
+            ### Server
+            Le serveur ne se compile pas, il se lance directement avec Python : `uv run python -m src.server.main` (ou via le service systemd installé séparément).
           files: release/*
           generate_release_notes: false
