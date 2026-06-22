@@ -13,10 +13,12 @@ for COMPONENT in client; do
     # Conversion des slashs pour le format de chemin Windows exigé par WiX
     SRC_DIR_WIN=$(echo "${SRC_DIR}" | sed 's/\//\\/g')
 
-    # Génération du fichier source WiX v4 propre
+    # Génération du fichier source WiX v4 (Utilise le namespace 'util' requis pour <Files>)
     cat > "dist/${COMPONENT}.wxs" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+     
   <Package Name="NyxCore ${COMPONENT^}" Version="${VERSION}" Manufacturer="yolezz"
            UpgradeCode="4a5c6e7d-8f9a-0b1c-2d3e-4f5a6b7c8d9e"
            Language="1033" Codepage="1252">
@@ -44,17 +46,17 @@ for COMPONENT in client; do
     </StandardDirectory>
 
     <ComponentGroup Id="Files" Directory="INSTALLDIR">
-      <Files Id="AppFilesHarvest" Include="${SRC_DIR_WIN}\\**" />
+      <Files Include="${SRC_DIR_WIN}\\**" />
     </ComponentGroup>
 
   </Package>
 </Wix>
 EOF
 
-    # Build unique du MSI avec WiX v4
+    # Build du MSI avec WiX v4 en incluant l'extension UTIL indispensable pour <Files>
     if command -v wix &>/dev/null; then
         echo "[msi] Compilation du pack avec WiX v4..."
-        wix build "dist/${COMPONENT}.wxs" -o "dist/${PKG_NAME}-${VERSION}.msi"
+        wix build "dist/${COMPONENT}.wxs" -ext WixToolset.Util.Extension -o "dist/${PKG_NAME}-${VERSION}.msi"
     else
         echo "[ERROR] WiX Toolset v4 non trouvé." >&2
         exit 1
