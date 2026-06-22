@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+{% set active = "licenses" %}
+{% block title %}Licenses{% endblock %}
+
+{% block content %}
+
+<!-- ── Create form ── -->
+<div class="section-header">
+  <h2>Licenses <span style="color:var(--muted);font-weight:400">({{ licenses|length }})</span></h2>
+</div>
+
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:20px">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.6px">Create New License</div>
+  <form method="POST" action="/admin/licenses/create">
+    <div class="form-row">
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Owner (optional)</label>
+        <input type="text" name="owner" placeholder="e.g. client_name" style="width:200px">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Machine Limit</label>
+        <input type="number" name="machines_limit" value="3" min="1" max="100" style="width:100px">
+      </div>
+      <div style="align-self:flex-end">
+        <button type="submit" class="btn primary">+ Generate License</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- ── License table ── -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Key</th>
+        <th>Status</th>
+        <th>Owner</th>
+        <th>Machine Limit</th>
+        <th>Created</th>
+        <th>Expires</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for lic in licenses %}
+      <tr>
+        <td style="color:var(--muted)">{{ lic.id }}</td>
+        <td>
+          <code style="font-size:11px;color:var(--blue);background:var(--border2);padding:2px 6px;border-radius:4px">
+            {{ lic.key }}
+          </code>
+        </td>
+        <td>
+          {% if lic.status == "active" %}
+            <span class="badge green">● active</span>
+          {% elif lic.status == "revoked" %}
+            <span class="badge red">✕ revoked</span>
+          {% else %}
+            <span class="badge yellow">⚠ {{ lic.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ lic.owner or "—" }}</td>
+        <td style="text-align:center">{{ lic.machines_limit }}</td>
+        <td style="color:var(--muted)">{{ lic.created_at.strftime("%Y-%m-%d") }}</td>
+        <td style="color:var(--muted)">
+          {% if lic.expires_at %}{{ lic.expires_at.strftime("%Y-%m-%d") }}
+          {% else %}<span style="color:var(--border)">never</span>{% endif %}
+        </td>
+        <td>
+          {% if lic.status == "active" %}
+          <form method="POST" action="/admin/licenses/{{ lic.id }}/revoke" style="display:inline"
+                onsubmit="return confirm('Revoke license {{ lic.key[:8] }}…?')">
+            <button type="submit" class="btn danger" style="padding:4px 10px;font-size:11px">Revoke</button>
+          </form>
+          {% else %}
+            <span style="color:var(--border)">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8"><div class="empty"><div class="ico">🔑</div>No licenses created yet</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

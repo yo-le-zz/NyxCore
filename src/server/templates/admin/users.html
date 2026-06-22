@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% set active = "users" %}
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h2>All Users <span style="color:var(--muted);font-weight:400">({{ users|length }})</span></h2>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Status</th>
+        <th>License</th>
+        <th>Created</th>
+        <th>Last Login</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td style="color:var(--muted)">{{ user.id }}</td>
+        <td style="font-weight:600">{{ user.username }}</td>
+        <td>
+          {% if user.is_active %}
+            <span class="badge green">● active</span>
+          {% else %}
+            <span class="badge red">○ disabled</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if user.license_id and user.license_id in licenses %}
+            {% set lic = licenses[user.license_id] %}
+            <span class="badge {% if lic.status == 'active' %}blue{% else %}red{% endif %}">
+              🔑 {{ lic.key[:8] }}…
+            </span>
+          {% else %}
+            <span class="badge muted">none</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted)">{{ user.created_at.strftime("%Y-%m-%d") }}</td>
+        <td style="color:var(--muted)">
+          {% if user.last_login %}{{ user.last_login.strftime("%Y-%m-%d %H:%M") }}
+          {% else %}<span style="color:var(--border)">never</span>{% endif %}
+        </td>
+        <td>
+          <form method="POST" action="/admin/users/{{ user.id }}/toggle" style="display:inline">
+            {% if user.is_active %}
+              <button type="submit" class="btn danger" style="padding:4px 10px;font-size:11px">Disable</button>
+            {% else %}
+              <button type="submit" class="btn success" style="padding:4px 10px;font-size:11px">Enable</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7"><div class="empty"><div class="ico">👤</div>No users registered</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% set active = "machines" %}
+{% block title %}Machines{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h2>Machines <span style="color:var(--muted);font-weight:400">({{ machines|length }})</span></h2>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Hardware ID</th>
+        <th>Hostname</th>
+        <th>OS</th>
+        <th>IP</th>
+        <th>Status</th>
+        <th>Last Seen</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in machines %}
+      <tr>
+        <td style="color:var(--muted)">{{ m.id }}</td>
+        <td>
+          {% if m.user_id in users %}
+            <span style="color:var(--blue)">{{ users[m.user_id].username }}</span>
+          {% else %}
+            <span style="color:var(--muted)">#{{ m.user_id }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <code style="font-size:10px;color:var(--muted);background:var(--border2);padding:2px 5px;border-radius:3px">
+            {{ m.hardware_id[:20] }}…
+          </code>
+        </td>
+        <td>{{ m.hostname or "—" }}</td>
+        <td style="color:var(--muted);font-size:11px">{{ m.os_info or "—" }}</td>
+        <td style="color:var(--muted)">{{ m.ip or "—" }}</td>
+        <td>
+          {% if m.is_banned %}
+            <span class="badge red" title="{{ m.ban_reason }}">✕ banned</span>
+          {% else %}
+            <span class="badge green">● ok</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted);font-size:11px">{{ m.last_seen.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>
+          {% if m.is_banned %}
+            <form method="POST" action="/admin/machines/{{ m.id }}/unban" style="display:inline">
+              <button type="submit" class="btn success" style="padding:4px 10px;font-size:11px">Unban</button>
+            </form>
+          {% else %}
+            <form method="POST" action="/admin/machines/{{ m.id }}/ban" style="display:inline"
+                  onsubmit="return confirm('Ban machine #{{ m.id }}?')">
+              <input type="hidden" name="reason" value="Banned by admin">
+              <button type="submit" class="btn danger" style="padding:4px 10px;font-size:11px">Ban</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9"><div class="empty"><div class="ico">💻</div>No machines registered</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

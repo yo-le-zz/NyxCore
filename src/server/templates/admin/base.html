@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NyxCore Admin — {% block title %}{% endblock %}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--border:#30363d;--border2:#21262d;
+  --text:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--blue-dark:#1f6feb;
+  --green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#bc8cff;
+  --font:'JetBrains Mono','Consolas','Courier New',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh;display:flex}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100}
+.sidebar-logo{padding:20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo .icon{font-size:22px}
+.sidebar-logo .name{font-size:15px;font-weight:700;color:var(--blue);letter-spacing:.5px}
+.sidebar-logo .ver{font-size:10px;color:var(--muted);margin-top:2px}
+nav{flex:1;padding:12px 0}
+nav a{display:flex;align-items:center;gap:10px;padding:9px 16px;color:var(--muted);text-decoration:none;border-left:3px solid transparent;transition:all .15s}
+nav a:hover{color:var(--text);background:var(--border2)}
+nav a.active{color:var(--blue);border-left-color:var(--blue);background:rgba(88,166,255,.08)}
+nav a .ico{width:18px;text-align:center}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.sidebar-footer a{color:var(--muted);text-decoration:none;font-size:11px;display:flex;align-items:center;gap:6px}
+.sidebar-footer a:hover{color:var(--red)}
+
+/* ── Main ── */
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);position:sticky;top:0;z-index:50}
+.topbar h1{font-size:16px;font-weight:600;color:var(--text)}
+.topbar .meta{font-size:11px;color:var(--muted)}
+.content{padding:24px;flex:1}
+
+/* ── Cards ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.card .value{font-size:26px;font-weight:700;color:var(--text)}
+.card .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.card.alert{border-color:var(--red)}
+.card.green .value{color:var(--green)}
+.card.blue .value{color:var(--blue)}
+.card.yellow .value{color:var(--yellow)}
+.card.red .value{color:var(--red)}
+.card.purple .value{color:var(--purple)}
+
+/* ── Disk bar ── */
+.disk-bar{background:var(--border2);border-radius:4px;height:8px;overflow:hidden;margin-top:8px}
+.disk-bar-fill{height:100%;border-radius:4px;background:var(--blue);transition:width .4s}
+.disk-bar-fill.warn{background:var(--yellow)}
+.disk-bar-fill.danger{background:var(--red)}
+
+/* ── Tables ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
+.table-wrap table{width:100%;border-collapse:collapse}
+.table-wrap th{padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);background:var(--bg)}
+.table-wrap td{padding:10px 14px;border-bottom:1px solid var(--border2);vertical-align:middle}
+.table-wrap tr:last-child td{border-bottom:none}
+.table-wrap tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ── Badges ── */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge.green{background:rgba(63,185,80,.15);color:var(--green)}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.badge.blue{background:rgba(88,166,255,.12);color:var(--blue)}
+.badge.muted{background:var(--border2);color:var(--muted)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:12px;font-family:var(--font);cursor:pointer;border:1px solid var(--border);background:var(--border2);color:var(--text);text-decoration:none;transition:all .15s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(248,81,73,.1)}
+.btn.success{border-color:var(--green);color:var(--green)}
+.btn.success:hover{background:rgba(63,185,80,.1)}
+.btn.primary{background:var(--blue-dark);border-color:var(--blue-dark);color:#fff}
+.btn.primary:hover{background:var(--blue)}
+
+/* ── Forms ── */
+.form-row{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+input[type=text],input[type=password],input[type=number],select{
+  background:var(--border2);border:1px solid var(--border);border-radius:6px;
+  padding:7px 12px;color:var(--text);font-family:var(--font);font-size:12px;
+}
+input:focus,select:focus{outline:none;border-color:var(--blue)}
+
+/* ── Section header ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-header h2{font-size:14px;font-weight:600}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:40px;color:var(--muted)}
+.empty .ico{font-size:32px;margin-bottom:8px}
+
+/* ── Alert banner ── */
+.alert-banner{background:rgba(248,81,73,.1);border:1px solid var(--red);border-radius:6px;padding:10px 14px;margin-bottom:16px;color:var(--red);font-size:12px}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <span class="icon">🌑</span>
+    <div><div class="name">NyxCore</div><div class="ver">Admin Panel v1.0.0</div></div>
+  </div>
+  <nav>
+    <a href="/admin/" class="{% if active=='dashboard' %}active{% endif %}">
+      <span class="ico">📊</span> Dashboard
+    </a>
+    <a href="/admin/users" class="{% if active=='users' %}active{% endif %}">
+      <span class="ico">👤</span> Users
+    </a>
+    <a href="/admin/licenses" class="{% if active=='licenses' %}active{% endif %}">
+      <span class="ico">🔑</span> Licenses
+    </a>
+    <a href="/admin/machines" class="{% if active=='machines' %}active{% endif %}">
+      <span class="ico">💻</span> Machines
+    </a>
+    <a href="/admin/isos" class="{% if active=='isos' %}active{% endif %}">
+      <span class="ico">💿</span> ISOs
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="/admin/logout">⏻ &nbsp;Logout</a>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <h1>{{ self.title() }}</h1>
+    <span class="meta">NyxCore Admin</span>
+  </div>
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+</body>
+</html>
