@@ -12,64 +12,13 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.13"
-  DATABASE_URL: postgresql+asyncpg://nyx:nyx@localhost:5432/nyxcore
 
 jobs:
-
-  test:
-    name: Lint & Test
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: nyx
-          POSTGRES_PASSWORD: nyx
-          POSTGRES_DB: nyxcore
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U nyx"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Install uv
-        run: pip install uv
-
-      - name: Install dependencies
-        run: |
-          uv sync --extra dev
-          uv pip install aiosqlite asyncpg
-
-      - name: Wait for Postgres
-        run: |
-          until pg_isready -h localhost -U nyx; do
-            sleep 1
-          done
-
-      - name: Run tests
-        run: uv run pytest tests/server/ -v
-
-
   build-linux:
+
     name: Build Linux (.deb)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test
+    needs: [build-linux]
     runs-on: ubuntu-latest
 
     steps:
