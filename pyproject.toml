@@ -63,7 +63,7 @@ nyxcore-client = "src.client.main:run"
 packages = ["src"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
+asyncio_mode = strict
 testpaths = ["tests"]
 addopts = "--cov=src --cov-report=term-missing"
 
