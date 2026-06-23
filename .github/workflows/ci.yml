@@ -47,7 +47,7 @@ jobs:
           uv run python -m nuitka \
             --standalone \
             --assume-yes-for-downloads \
-            --plugin-enable=pyside6 \
+            --plugin-enable=anti-bloat \
             --output-dir=dist/client \
             --output-filename=nyxcore \
             --include-package=src.client \
