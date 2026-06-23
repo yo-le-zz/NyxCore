@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NyxCore Hub — Public ISO Library</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--surface:#161b22;--border:#30363d;--border2:#21262d;
+  --text:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--blue-dark:#1f6feb;
+  --green:#3fb950;--font:'JetBrains Mono','Consolas','Courier New',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;min-height:100vh}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 20px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+header .logo{display:flex;align-items:center;gap:10px}
+header .logo .icon{font-size:28px}
+header .logo h1{font-size:20px;color:var(--blue)}
+header .logo p{font-size:11px;color:var(--muted)}
+header nav a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:16px}
+header nav a:hover{color:var(--blue)}
+.notice{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:20px}
+.toolbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.toolbar input[type=text]{flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--font)}
+.toolbar select{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-family:var(--font)}
+.toolbar button{background:var(--blue-dark);border:none;border-radius:6px;padding:9px 16px;color:#fff;font-family:var(--font);cursor:pointer}
+.toolbar button:hover{background:var(--blue)}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);background:var(--bg)}
+td{padding:10px 14px;border-bottom:1px solid var(--border2)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+a.dl{display:inline-block;background:var(--border2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;color:var(--text);text-decoration:none;font-size:12px}
+a.dl:hover{border-color:var(--green);color:var(--green)}
+.empty{text-align:center;padding:50px;color:var(--muted)}
+footer{margin-top:24px;text-align:center;color:var(--muted);font-size:11px}
+footer a{color:var(--blue);text-decoration:none}
+@media (max-width: 640px){
+  th:nth-child(3), td:nth-child(3) { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <span class="icon">🌑</span>
+      <div><h1>NyxCore Hub</h1><p>Public ISO library — read-only, no account needed</p></div>
+    </div>
+    <nav>
+      <a href="/hub/">Browse</a>
+      <a href="/hub/stats">Stats</a>
+    </nav>
+  </header>
+
+  <div class="notice">
+    ℹ️ This page lets you browse and download ISOs without installing the NyxCore client.
+    Uploading is only available through the desktop application.
+  </div>
+
+  <form class="toolbar" method="GET" action="/hub/">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search ISOs by name…">
+    <select name="sort" onchange="this.form.submit()">
+      <option value="date" {% if sort=="date" %}selected{% endif %}>Sort: Newest</option>
+      <option value="name" {% if sort=="name" %}selected{% endif %}>Sort: Name (A–Z)</option>
+      <option value="size" {% if sort=="size" %}selected{% endif %}>Sort: Size</option>
+      <option value="popularity" {% if sort=="popularity" %}selected{% endif %}>Sort: Most downloaded</option>
+    </select>
+    <button type="submit">Search</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Size</th>
+          <th>Uploader</th>
+          <th>Added</th>
+          <th>Downloads</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for iso in isos %}
+        <tr>
+          <td>💿 {{ iso.file_name }}</td>
+          <td style="color:var(--muted)">
+            {% if iso.file_size >= 1073741824 %}
+              {{ "%.2f"|format(iso.file_size / 1073741824) }} GB
+            {% else %}
+              {{ "%.1f"|format(iso.file_size / 1048576) }} MB
+            {% endif %}
+          </td>
+          <td style="color:var(--muted)">{{ iso.uploader }}</td>
+          <td style="color:var(--muted)">{{ iso.uploaded_at.strftime("%Y-%m-%d") }}</td>
+          <td style="color:var(--muted)">{{ iso.download_count }}</td>
+          <td><a class="dl" href="/hub/download/{{ iso.file_name }}">⬇ Download</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty">No ISO matches your search.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Powered by <a href="/hub/">NyxCore</a> — see live <a href="/hub/stats">hub statistics</a>
+  </footer>
+</div>
+</body>
+</html>

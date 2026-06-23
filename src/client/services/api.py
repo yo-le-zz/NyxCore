@@ -1,7 +1,8 @@
 """
 NyxCore Client — HTTP API service.
 
-Upload protocol: chunked resumable (init → PUT chunks → complete).
+Upload protocol: chunked resumable (init → PUT chunks → complete), cancellable
+mid-transfer via a threading.Event checked between chunks (feature 3).
 Download protocol: HTTP Range requests for resume.
 Token protocol: access + refresh with automatic rotation + reuse-safe storage.
 """
@@ -23,6 +24,10 @@ class APIError(Exception):
     def __init__(self, message: str, status_code: int = 0):
         super().__init__(message)
         self.status_code = status_code
+
+
+class UploadCancelled(Exception):
+    """Raised internally when an upload is cancelled mid-transfer."""
 
 
 class NyxCoreAPI:
@@ -92,6 +97,14 @@ class NyxCoreAPI:
             r = self._session.post(self._url(path), json=json, headers=headers, **kwargs)
         return self._handle(r)
 
+    def _delete(self, path: str, **kwargs) -> dict | list:
+        headers = {**self._auth_header(), **kwargs.pop("headers", {})}
+        r = self._session.delete(self._url(path), headers=headers, **kwargs)
+        if r.status_code == 401 and self._refresh_tokens():
+            headers = {**self._auth_header()}
+            r = self._session.delete(self._url(path), headers=headers, **kwargs)
+        return self._handle(r)
+
     def _put_raw(self, path: str, data: bytes) -> dict:
         headers = {**self._auth_header(), "Content-Type": "application/octet-stream"}
         r = self._session.put(self._url(path), data=data, headers=headers, timeout=(10, 120))
@@ -157,13 +170,23 @@ class NyxCoreAPI:
     def upload_history(self) -> list[dict]:
         return self._get("/isos/history", timeout=15)
 
-    # ── ISOs — chunked upload ─────────────────────────────────────────────────
+    # ── ISOs — report (feature 5) ─────────────────────────────────────────────
+
+    def report_iso(self, filename: str, description: str) -> dict:
+        return self._post(
+            f"/isos/{filename}/report",
+            {"file_name": filename, "description": description},
+            timeout=10,
+        )
+
+    # ── ISOs — chunked upload (cancellable, feature 3) ────────────────────────
 
     def upload_iso(
         self,
         file_path: str,
         progress_callback: ProgressCallback | None = None,
         resume: bool = True,
+        cancel_event: threading.Event | None = None,
     ) -> dict:
         """
         Chunked resumable upload:
@@ -173,14 +196,31 @@ class NyxCoreAPI:
           4. Complete + verify
 
         resume=True: re-use existing upload_id stored alongside the file if available.
+        cancel_event: if set() at any point, the upload stops between two chunks,
+        the server-side session is told to cancel (cleans up staged chunks + DB
+        record), and UploadCancelled is raised.
         """
         path = Path(file_path)
         total_size = path.stat().st_size
 
+        def _check_cancel(upload_id: str | None):
+            if cancel_event is not None and cancel_event.is_set():
+                if upload_id:
+                    try:
+                        self.cancel_upload(upload_id)
+                    except APIError:
+                        pass
+                session_file = path.parent / f".nyxcore_{path.name}.upload_id"
+                session_file.unlink(missing_ok=True)
+                raise UploadCancelled(f"Upload of {path.name} was cancelled")
+
         # ── SHA-256 of full file (fast pre-check + server-side verification) ──
         sha256 = _sha256_file(
-            path, lambda done, tot: progress_callback(done // 2, tot) if progress_callback else None
+            path,
+            lambda done, tot: progress_callback(done // 2, tot) if progress_callback else None,
+            cancel_event=cancel_event,
         )
+        _check_cancel(None)
 
         # ── Try to resume existing session ────────────────────────────────────
         upload_id: str | None = None
@@ -193,7 +233,10 @@ class NyxCoreAPI:
                 if status.get("status") == "complete":
                     session_file.unlink(missing_ok=True)
                     return {"file_name": path.name, "status": "already_complete"}
-                missing_chunks = status.get("missing_chunks", [])
+                if status.get("status") == "cancelled":
+                    upload_id = None
+                else:
+                    missing_chunks = status.get("missing_chunks", [])
             except APIError:
                 upload_id = None  # session expired, start fresh
 
@@ -232,12 +275,15 @@ class NyxCoreAPI:
 
         with open(path, "rb") as f:
             for idx in missing_chunks:
+                _check_cancel(upload_id)
+
                 offset = idx * chunk_size
                 f.seek(offset)
                 data = f.read(chunk_size)
 
                 # Retry logic per chunk (network blip tolerance)
                 for attempt in range(3):
+                    _check_cancel(upload_id)
                     try:
                         self._put_raw(f"/isos/upload/{upload_id}/chunk/{idx}", data)
                         break
@@ -250,10 +296,16 @@ class NyxCoreAPI:
                 if progress_callback:
                     progress_callback(total_size // 2 + sent_bytes // 2, total_size)
 
+        _check_cancel(upload_id)
+
         # ── Complete ──────────────────────────────────────────────────────────
         result = self._post(f"/isos/upload/{upload_id}/complete", timeout=120)
         session_file.unlink(missing_ok=True)
         return result
+
+    def cancel_upload(self, upload_id: str) -> dict:
+        """Tell the server to abort and clean up an in-progress chunked upload."""
+        return self._delete(f"/isos/upload/{upload_id}", timeout=15)
 
     # ── ISOs — ranged download (resumable) ───────────────────────────────────
 
@@ -306,12 +358,18 @@ class NyxCoreAPI:
 # ── Utility ───────────────────────────────────────────────────────────────────
 
 
-def _sha256_file(path: Path, progress_callback: ProgressCallback | None = None) -> str:
+def _sha256_file(
+    path: Path,
+    progress_callback: ProgressCallback | None = None,
+    cancel_event: threading.Event | None = None,
+) -> str:
     sha = hashlib.sha256()
     total = path.stat().st_size
     done = 0
     with open(path, "rb") as f:
         while block := f.read(1024 * 1024):
+            if cancel_event is not None and cancel_event.is_set():
+                raise UploadCancelled(f"Upload of {path.name} was cancelled")
             sha.update(block)
             done += len(block)
             if progress_callback:

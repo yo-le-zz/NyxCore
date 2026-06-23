@@ -15,7 +15,7 @@ from src.server.core.config import settings
 from src.server.core.database import init_db
 from src.server.middleware.rate_limit import RateLimitMiddleware
 from src.server.middleware.security import SecurityHeadersMiddleware
-from src.server.routers import admin, auth, health, isos, licenses, machines
+from src.server.routers import admin, auth, health, hub, isos, licenses, machines
 
 logging.basicConfig(
     level=logging.INFO,
@@ -63,6 +63,9 @@ app.include_router(isos.router, prefix="/api/v1/isos", tags=["isos"])
 
 # ── Admin web panel + REST under /admin ───────────────────────────────────────
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
+
+# ── Public read-only hub website under /hub (no auth, no upload) ─────────────
+app.include_router(hub.router, prefix="/hub", tags=["hub"])
 
 
 @app.get("/", include_in_schema=False)

@@ -1,4 +1,4 @@
-"""Pydantic schemas — licenses, machines, isos, admin, chunks."""
+"""Pydantic schemas — licenses, machines, isos, admin, chunks, reports, hub."""
 
 from __future__ import annotations
 
@@ -104,6 +104,31 @@ class ChunkStatus(BaseModel):
     missing_chunks: list[int]
 
 
+class CancelUploadResponse(BaseModel):
+    upload_id: str
+    status: Literal["cancelled"]
+
+
+# ── Reports (feature 5) ───────────────────────────────────────────────────────
+
+
+class ReportCreate(BaseModel):
+    file_name: str = Field(..., min_length=1, max_length=256)
+    description: str = Field(..., min_length=3, max_length=1000)
+
+
+class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    file_name: str
+    reporter_id: int
+    description: str
+    status: str
+    created_at: datetime
+    resolved_at: datetime | None
+    resolution_note: str | None
+
+
 # ── Admin ─────────────────────────────────────────────────────────────────────
 
 
@@ -112,6 +137,9 @@ class AdminStats(BaseModel):
     total_licenses: int
     total_machines: int
     total_uploads: int
+    total_downloads: int
+    total_upload_bytes: int
+    total_download_bytes: int
     disk_used_gb: float
     disk_total_gb: float
     disk_used_pct: float
@@ -121,3 +149,28 @@ class AdminStats(BaseModel):
 class AdminUserAction(BaseModel):
     user_id: int
     action: Literal["activate", "deactivate"]
+
+
+class AdminBanUser(BaseModel):
+    user_id: int
+    reason: str = Field(..., min_length=1, max_length=256)
+    delete_isos: bool = False
+
+
+# ── Public hub (feature 2) ────────────────────────────────────────────────────
+
+
+class HubISOOut(BaseModel):
+    file_name: str
+    file_size: int
+    uploaded_at: datetime
+    uploader: str | None
+    download_count: int
+
+
+class HubStatsOut(BaseModel):
+    total_visits: int
+    total_hub_downloads: int
+    total_isos: int
+    total_disk_used_gb: float
+    total_disk_available_gb: float

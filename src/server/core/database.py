@@ -64,7 +64,17 @@ class Base(DeclarativeBase):
 
 async def init_db() -> None:
     """Create all tables. Only used in dev/test (use Alembic in production)."""
-    from src.server.models import license, machine, token, upload, user  # noqa: F401
+    from src.server.models import (  # noqa: F401
+        admin_log,
+        hub,
+        iso_chunk,
+        license,
+        machine,
+        report,
+        token,
+        upload,
+        user,
+    )
 
     async with engine.begin() as conn:
         if not settings.is_postgres:

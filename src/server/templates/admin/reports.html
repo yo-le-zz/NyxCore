@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% set active = "reports" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h2>ISO Reports <span style="color:var(--muted);font-weight:400">({{ reports|length }})</span></h2>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ISO</th>
+        <th>Uploader</th>
+        <th>Reported by</th>
+        <th>Description</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td style="color:var(--blue)">💿 {{ r.file_name }}</td>
+        <td>
+          {% if r.uploader_username %}
+            <span class="text-blue">{{ r.uploader_username }}</span>
+            <span class="text-muted" style="font-size:10px">#{{ r.uploader_id }}</span>
+          {% else %}
+            <span class="text-muted">unknown</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="text-blue">{{ r.reporter_username }}</span>
+          <span class="text-muted" style="font-size:10px">#{{ r.reporter_id }}</span>
+        </td>
+        <td style="max-width:260px;white-space:normal;font-size:11px;color:var(--text)">{{ r.description }}</td>
+        <td style="color:var(--muted);font-size:11px">{{ r.created_at }}</td>
+        <td>
+          {% if r.status == "pending" %}
+            <span class="badge yellow">⏳ pending</span>
+          {% elif r.status == "accepted" %}
+            <span class="badge red">✕ accepted (ISO removed)</span>
+          {% else %}
+            <span class="badge muted">○ ignored</span>
+          {% endif %}
+        </td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          {% if r.status == "pending" %}
+          <form method="POST" action="/admin/reports/{{ r.id }}/ignore" style="display:inline">
+            <button type="submit" class="btn" style="padding:4px 10px;font-size:11px">Skip</button>
+          </form>
+          <form method="POST" action="/admin/reports/{{ r.id }}/accept" style="display:inline"
+                onsubmit="return confirm('Accept this report and delete {{ r.file_name }}?')">
+            <button type="submit" class="btn danger" style="padding:4px 10px;font-size:11px">Accept (delete ISO)</button>
+          </form>
+          <button type="button" class="btn danger" style="padding:4px 10px;font-size:11px"
+                  onclick="openBanReporterModal({{ r.id }}, '{{ r.reporter_username }}')">
+            Ban reporter (false report)
+          </button>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7"><div class="empty"><div class="ico">🚩</div>No reports filed</div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Ban reporter modal ── -->
+<div class="modal-overlay" id="banReporterModal">
+  <div class="modal-box">
+    <h3>Ban reporter <span id="banReporterUsername" class="text-blue"></span>?</h3>
+    <p class="text-muted" style="font-size:11px;margin-bottom:10px">
+      This bans the user who filed the report for submitting a false/abusive report.
+      The reported ISO is NOT affected.
+    </p>
+    <form method="POST" id="banReporterForm" action="">
+      <div class="form-row">
+        <input type="text" name="reason" placeholder="Reason" value="False/abusive report" required style="width:100%">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeBanReporterModal()">Cancel</button>
+        <button type="submit" class="btn danger">Ban reporter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openBanReporterModal(reportId, username) {
+  document.getElementById('banReporterUsername').textContent = username;
+  document.getElementById('banReporterForm').action = '/admin/reports/' + reportId + '/ban-reporter';
+  document.getElementById('banReporterModal').classList.add('open');
+}
+function closeBanReporterModal() { document.getElementById('banReporterModal').classList.remove('open'); }
+</script>
+{% endblock %}

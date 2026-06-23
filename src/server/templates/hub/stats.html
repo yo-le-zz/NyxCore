@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NyxCore Hub — Stats</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--blue:#58a6ff;--green:#3fb950;--font:'JetBrains Mono','Consolas',monospace}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+.wrap{max-width:800px;margin:0 auto;padding:32px 20px}
+header{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+header .icon{font-size:28px}
+header h1{font-size:20px;color:var(--blue)}
+nav a{color:var(--muted);text-decoration:none;font-size:12px;margin-right:16px}
+nav a:hover{color:var(--blue)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px}
+.card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.card .value{font-size:28px;font-weight:700;color:var(--text)}
+.card.green .value{color:var(--green)}
+.card.blue .value{color:var(--blue)}
+footer{margin-top:30px;text-align:center;color:var(--muted);font-size:11px}
+footer a{color:var(--blue);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="icon">🌑</span><h1>NyxCore Hub — Public Stats</h1></header>
+  <nav><a href="/hub/">← Back to browsing</a></nav>
+
+  <div class="cards">
+    <div class="card blue">
+      <div class="label">Total Visits</div>
+      <div class="value">{{ stats.total_visits }}</div>
+    </div>
+    <div class="card green">
+      <div class="label">Hub Downloads</div>
+      <div class="value">{{ stats.total_hub_downloads }}</div>
+    </div>
+    <div class="card">
+      <div class="label">ISOs Available</div>
+      <div class="value">{{ stats.total_isos }}</div>
+    </div>
+    <div class="card">
+      <div class="label">Disk Used</div>
+      <div class="value">{{ stats.total_disk_used_gb }} GB</div>
+    </div>
+    <div class="card">
+      <div class="label">Disk Available</div>
+      <div class="value">{{ stats.total_disk_available_gb }} GB</div>
+    </div>
+  </div>
+
+  <footer>Powered by <a href="/hub/">NyxCore</a></footer>
+</div>
+</body>
+</html>

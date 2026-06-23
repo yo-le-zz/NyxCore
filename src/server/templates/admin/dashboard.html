@@ -1,5 +1,6 @@
 {% extends "admin/base.html" %}
 {% set active = "dashboard" %}
+{% set pending_reports_count = stats.pending_reports %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -8,6 +9,12 @@
 {% if stats.disk_alert %}
 <div class="alert-banner">
   ⚠ Disk usage critical — {{ stats.disk_used_pct }}% used ({{ stats.disk_used_gb }} GB / {{ stats.disk_total_gb }} GB)
+</div>
+{% endif %}
+
+{% if stats.pending_reports %}
+<div class="alert-banner" style="border-color:var(--yellow);color:var(--yellow);background:rgba(210,153,34,.1)">
+  🚩 {{ stats.pending_reports }} report(s) awaiting review — <a href="/admin/reports" style="color:var(--yellow);text-decoration:underline">review now</a>
 </div>
 {% endif %}
 
@@ -28,11 +35,19 @@
     <div class="value">{{ stats.total_machines }}</div>
     <div class="sub">{{ stats.banned_machines }} banned</div>
   </div>
-  <div class="card yellow">
-    <div class="label">Transfers</div>
+
+  <!-- Separated upload / download counters (feature 1) -->
+  <div class="card green">
+    <div class="label">⬆ Uploads</div>
     <div class="value">{{ stats.total_uploads }}</div>
-    <div class="sub">upload + download logs</div>
+    <div class="sub">{{ "%.1f"|format(stats.total_upload_bytes / 1073741824) }} GB total</div>
   </div>
+  <div class="card blue">
+    <div class="label">⬇ Downloads</div>
+    <div class="value">{{ stats.total_downloads }}</div>
+    <div class="sub">{{ "%.1f"|format(stats.total_download_bytes / 1073741824) }} GB total</div>
+  </div>
+
   <div class="card {% if stats.disk_alert %}red{% else %}blue{% endif %}">
     <div class="label">Disk Usage</div>
     <div class="value">{{ stats.disk_used_pct }}%</div>
@@ -96,6 +111,8 @@
   <a href="/admin/users" class="btn">Manage Users</a>
   <a href="/admin/machines" class="btn">Manage Machines</a>
   <a href="/admin/isos" class="btn">Browse ISOs</a>
+  <a href="/admin/reports" class="btn">Review Reports</a>
+  <a href="/hub/" target="_blank" class="btn">Open Public Hub ↗</a>
 </div>
 
 {% endblock %}

@@ -72,6 +72,10 @@ async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    if user.is_banned:
+        raise HTTPException(
+            status_code=403, detail=f"Account banned: {user.ban_reason or 'no reason given'}"
+        )
 
     if user.license_id:
         lic_result = await db.execute(select(License).where(License.id == user.license_id))
@@ -106,6 +110,8 @@ async def refresh_tokens(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or disabled")
+    if user.is_banned:
+        raise HTTPException(status_code=403, detail="Account banned")
 
     access = create_access_token(str(user_id))
     refresh = await create_refresh_token(user_id, db, request, parent_jti=parent_jti)

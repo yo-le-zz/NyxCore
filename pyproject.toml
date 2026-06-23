@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nyxcore"
-version = "1.0.0"
+version = "1.1.0"
 description = "ISO/OS HUB platform with licenses, users, machines, and secure API"
 authors = [{ name = "yolezz" }]
 license = { text = "MIT" }

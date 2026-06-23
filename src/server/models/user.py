@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.server.core.database import Base
@@ -24,6 +24,20 @@ class User(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── User-level ban (distinct from per-machine ban) ─────────────────────────
+    # A banned user cannot log in (software) nor authenticate with the public hub.
+    is_banned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    ban_reason: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    banned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── Cached counters (kept in sync at upload-complete / download time) ──────
+    # Kept separate so the admin panel can show "files uploaded" vs "files
+    # downloaded" instead of a single merged "transfers" number.
+    total_uploads: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_downloads: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_upload_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    total_download_bytes: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
     license: Mapped[License | None] = relationship("License", back_populates="users")  # noqa: F821
     machines: Mapped[list[Machine]] = relationship(

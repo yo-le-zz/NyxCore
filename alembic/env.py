@@ -1,34 +1,37 @@
-"""Alembic env.py — supports both SQLite and PostgreSQL via settings."""
-from __future__ import annotations
+import sys
+from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Import settings and Base before anything else
-import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from alembic import context
 
-from src.server.core.config import settings
-from src.server.core.database import Base
-
-# Import ALL models so they register with Base.metadata
-from src.server.models import user, license, machine, upload, token, iso_chunk  # noqa: F401
-
+# Alembic Config object
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.sync_database_url)
 
+# Logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# 🎯 TA DATABASE POSTGRES FIXE
+DATABASE_URL = "postgresql+psycopg2://nyxuser:nyxpass@localhost:5432/nyxdb"
+
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+# 👉 Mets ici ton Base SQLAlchemy
+# exemple classique :
+# from app.database import Base
+from src.server.core.database import Base
 
 target_metadata = Base.metadata
 
 
-def run_migrations_offline() -> None:
+def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -36,36 +39,37 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        compare_server_default=True,
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection: Connection) -> None:
+def do_run_migrations(connection: Connection):
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
-        compare_server_default=True,
     )
+
     with context.begin_transaction():
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    cfg = config.get_section(config.config_ini_section, {})
-    cfg["sqlalchemy.url"] = settings.sync_database_url
+async def run_async_migrations():
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
 
-    # Use regular (sync) engine for migrations
-    from sqlalchemy import create_engine
-    engine = create_engine(settings.sync_database_url, poolclass=pool.NullPool)
-    with engine.connect() as connection:
-        do_run_migrations(connection)
-    engine.dispose()
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
 
 
-def run_migrations_online() -> None:
+def run_migrations_online():
     asyncio.run(run_async_migrations())
 
 

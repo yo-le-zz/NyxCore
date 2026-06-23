@@ -1,0 +1,7 @@
+LOAD DATABASE
+     FROM sqlite:///home/ilan/NyxCore/nyxcore.db
+     INTO postgresql://nyxcore:CHANGE_MOI_MOT_DE_PASSE_FORT@localhost/nyxcore
+
+WITH include drop, create tables, create indexes, reset sequences
+
+SET work_mem to '128MB', maintenance_work_mem to '256MB';

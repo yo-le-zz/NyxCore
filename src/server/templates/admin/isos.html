@@ -7,6 +7,12 @@
   <h2>ISO Repository <span style="color:var(--muted);font-weight:400">({{ files|length }} files)</span></h2>
 </div>
 
+<form method="GET" action="/admin/isos" class="form-row">
+  <input type="text" name="q" value="{{ query }}" placeholder="Search by filename, username or user ID…" style="width:320px">
+  <button type="submit" class="btn">Search</button>
+  {% if query %}<a href="/admin/isos" class="btn">Clear</a>{% endif %}
+</form>
+
 <div class="table-wrap">
   <table>
     <thead>
@@ -14,7 +20,9 @@
         <th>Filename</th>
         <th>Size</th>
         <th>Uploaded</th>
-        <th>Download</th>
+        <th>Uploader</th>
+        <th>⬇ Downloads</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -35,18 +43,37 @@
           {{ f.uploaded_at or "—" }}
         </td>
         <td>
+          {% if f.uploader_username %}
+            <span class="text-blue">{{ f.uploader_username }}</span>
+            <span class="text-muted" style="font-size:10px">#{{ f.uploader_id }}</span>
+          {% else %}
+            <span class="text-muted">unknown</span>
+          {% endif %}
+        </td>
+        <td style="color:var(--muted)">{{ f.download_count }}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
           <a href="/api/v1/isos/download/{{ f.file_name }}" class="btn" style="padding:4px 10px;font-size:11px">
-            ⬇ Download
+            ⬇
           </a>
+          <button type="button" class="btn danger" style="padding:4px 10px;font-size:11px"
+                  onclick="openDeleteModal('{{ f.file_name }}')">Delete</button>
+          {% if f.uploader_id %}
+          <button type="button" class="btn danger" style="padding:4px 10px;font-size:11px"
+                  onclick="openBanUploaderModal('{{ f.file_name }}', {{ f.uploader_id }}, '{{ f.uploader_username }}')">
+            Ban uploader
+          </button>
+          {% endif %}
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="4">
+        <td colspan="6">
           <div class="empty">
             <div class="ico">💿</div>
-            No ISO files in repository yet.<br>
-            <span style="font-size:11px">Upload via the client or POST /api/v1/isos/upload/init</span>
+            {% if query %}No ISO matches "{{ query }}".{% else %}
+              No ISO files in repository yet.<br>
+              <span style="font-size:11px">Upload via the client or POST /api/v1/isos/upload/init</span>
+            {% endif %}
           </div>
         </td>
       </tr>
@@ -58,10 +85,68 @@
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:16px">
   <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px">Upload Protocol (chunked)</div>
   <pre style="font-size:11px;color:var(--blue);line-height:1.8">
-POST /api/v1/isos/upload/init              → { upload_id, chunk_size, total_chunks }
-PUT  /api/v1/isos/upload/{id}/chunk/{n}   → raw bytes body (idempotent)
-GET  /api/v1/isos/upload/{id}/status      → { missing_chunks: [...] }
-POST /api/v1/isos/upload/{id}/complete    → assemble + SHA-256 verify
-GET  /api/v1/isos/download/{file}         → full or Range: bytes=X- (resume)</pre>
+POST   /api/v1/isos/upload/init              → { upload_id, chunk_size, total_chunks }
+PUT    /api/v1/isos/upload/{id}/chunk/{n}   → raw bytes body (idempotent)
+DELETE /api/v1/isos/upload/{id}             → cancel an in-progress upload
+GET    /api/v1/isos/upload/{id}/status      → { missing_chunks: [...] }
+POST   /api/v1/isos/upload/{id}/complete    → assemble + SHA-256 verify
+GET    /api/v1/isos/download/{file}         → full or Range: bytes=X- (resume)
+POST   /api/v1/isos/{file}/report           → file a report against an ISO</pre>
 </div>
+
+<!-- ── Delete confirmation modal ── -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <h3>Delete <span id="deleteFilename" class="text-blue"></span>?</h3>
+    <p class="text-muted" style="font-size:11px;margin-bottom:10px">
+      This permanently removes the file from disk and from the public hub. This cannot be undone.
+    </p>
+    <form method="POST" id="deleteForm" action="/admin/isos/delete">
+      <input type="hidden" name="file_name" id="deleteFileNameInput">
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn danger">Delete permanently</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Ban uploader modal (with optional combined delete) ── -->
+<div class="modal-overlay" id="banUploaderModal">
+  <div class="modal-box">
+    <h3>Ban <span id="banUploaderUsername" class="text-blue"></span>?</h3>
+    <form method="POST" id="banUploaderForm" action="/admin/isos/ban-uploader">
+      <input type="hidden" name="file_name" id="banUploaderFileInput">
+      <input type="hidden" name="user_id" id="banUploaderUserIdInput">
+      <div class="form-row">
+        <input type="text" name="reason" placeholder="Ban reason" required style="width:100%">
+      </div>
+      <label class="checkbox">
+        <input type="checkbox" name="delete_iso" value="true">
+        Also delete this ISO ("Supprimer et bannir")
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeBanUploaderModal()">Cancel</button>
+        <button type="submit" class="btn danger">Confirm</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openDeleteModal(filename) {
+  document.getElementById('deleteFilename').textContent = filename;
+  document.getElementById('deleteFileNameInput').value = filename;
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('open'); }
+
+function openBanUploaderModal(filename, userId, username) {
+  document.getElementById('banUploaderUsername').textContent = username;
+  document.getElementById('banUploaderFileInput').value = filename;
+  document.getElementById('banUploaderUserIdInput').value = userId;
+  document.getElementById('banUploaderModal').classList.add('open');
+}
+function closeBanUploaderModal() { document.getElementById('banUploaderModal').classList.remove('open'); }
+</script>
 {% endblock %}

@@ -1,210 +1,176 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/yo-le-zz/NyxCore/main/NyxCore.png" width="180" height="180" alt="NyxCore Logo" />
+# NyxCore v1.1.0 — Implémentation complète des 6 fonctionnalités
 
-  # 🌑 NyxCore v1.0.0
+Tous les fichiers ci-dessous sont à copier **en remplacement** des fichiers du même nom dans
+ton repo (ou en ajout, pour les nouveaux fichiers). L'arborescence du zip reproduit exactement
+`src/server/...` et `src/client/...`.
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yo-le-zz/NyxCore)
-  [![Python](https://img.shields.io/badge/python-3.13.x-green.svg)](https://www.python.org/)
-  [![Author](https://img.shields.io/badge/author-yolezz-purple.svg)](https://github.com/yo-le-zz)
-  [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/yo-le-zz/NyxCore/blob/main/LICENSE)
+## ⚠️ Étape obligatoire après déploiement : passer sur PostgreSQL
 
-  **NyxCore** is a software that allows for a huge HUB of different ISO operating systems.
-  
-  *ISO / OS HUB Platform — License management, user control, machine tracking, secure ISO distribution.*
-</div>
+Le serveur utilise maintenant **PostgreSQL par défaut** (`DB_BACKEND=postgresql` dans
+`config.py`) — bien plus maintenable en production que SQLite : vraies migrations,
+écritures concurrentes propres, pas de surprise "no such column" après une mise à jour.
+
+### Étapes :
+
+1. **Installer PostgreSQL** sur le serveur :
+   ```bash
+   sudo apt update && sudo apt install -y postgresql postgresql-contrib
+   sudo systemctl enable --now postgresql
+   ```
+
+2. **Créer la base et l'utilisateur** :
+   ```bash
+   sudo -u postgres psql << 'EOF'
+   CREATE USER nyxcore WITH PASSWORD 'CHANGE_MOI';
+   CREATE DATABASE nyxcore OWNER nyxcore;
+   GRANT ALL PRIVILEGES ON DATABASE nyxcore TO nyxcore;
+   EOF
+   ```
+
+3. **Installer les drivers Python** :
+   ```bash
+   cd ~/NyxCore && source venv/bin/activate
+   pip install -r requirements-postgresql.txt
+   ```
+
+4. **Configurer `.env`** — copie `.env.postgresql.example` vers `.env` (ou fusionne
+   avec ton `.env` existant) et renseigne `PG_PASSWORD`.
+
+5. **Migrer les données existantes** (si tu as déjà des users/ISOs en SQLite) :
+   ```bash
+   sudo apt install -y pgloader
+   pgloader migrate_sqlite_to_postgres.load   # adapte le chemin du .db et le mdp dans le fichier
+   sudo -u postgres psql -d nyxcore -f migration_v1.1_postgres.sql
+   ```
+   Si tu repars d'une base vide, ignore cette étape : `init_db()` créera tout
+   automatiquement au premier démarrage, avec toutes les colonnes correctes.
+
+6. **Redémarrer** :
+   ```bash
+   sudo systemctl restart nyxcore
+   journalctl -u nyxcore -f
+   ```
+   Tu dois voir `Database backend: postgresql — ...` dans les logs.
+
+Si tu veux exceptionnellement rester sur SQLite pour un test local, mets `DB_BACKEND=sqlite`
+dans `.env` — tout le code reste compatible avec les deux backends.
 
 ---
 
-## Quick Start
+## Fonctionnalité 1 — Compteurs upload/download séparés
+
+**Modifié :**
+- `src/server/models/user.py` → ajout `total_uploads`, `total_downloads`, `total_upload_bytes`, `total_download_bytes`
+- `src/server/routers/isos.py` → incrémentés dans `complete_upload()` et `download_iso()`
+  (le compteur download n'est incrémenté qu'à la **première** requête d'un téléchargement,
+  pas à chaque requête `Range` de reprise, pour ne pas fausser les stats)
+- `src/server/routers/admin.py` → `_get_stats()` agrège les nouveaux compteurs
+- `src/server/templates/admin/dashboard.html` → 2 cartes séparées (⬆ Uploads / ⬇ Downloads)
+- `src/server/templates/admin/users.html` → 2 colonnes par utilisateur
+
+## Fonctionnalité 2 — Site public `/hub/`
+
+**Nouveaux fichiers :**
+- `src/server/models/hub.py` → `HubVisit` (1 ligne par IP unique/jour), `HubDownload`
+- `src/server/routers/hub.py` → `/hub/` (liste + recherche + tri), `/hub/stats`, `/hub/download/{filename}`
+- `src/server/templates/hub/index.html`, `src/server/templates/hub/stats.html`
+
+**Modifié :**
+- `src/server/main.py` → `app.include_router(hub.router, prefix="/hub")`
+- `src/server/routers/__init__.py`
+
+Accès : `http://<ip>:<port>/hub/` — aucune authentification, aucune route d'upload/suppression
+exposée dans ce module (lecture seule par construction, pas juste par contrôle d'accès).
+
+## Fonctionnalité 3 — Annuler un upload en cours
+
+**Côté serveur :**
+- `src/server/routers/isos.py` → nouvelle route `DELETE /api/v1/isos/upload/{upload_id}`
+  (nettoie les chunks stagés via `iso_storage.cleanup_staging()`, passe le statut DB à `cancelled`)
+
+**Côté client :**
+- `src/client/services/api.py` → `upload_iso()` accepte un `cancel_event: threading.Event`,
+  vérifié entre chaque chunk (et pendant le calcul du SHA-256) ; `cancel_upload()` ajouté
+- `src/client/services/workers.py` → `UploadWorker.cancel()` + signal `cancelled`
+- `src/client/ui/main_window.py` → panneau "transfert actif" avec bouton ✕ Cancel, visible
+  pendant l'upload
+
+## Fonctionnalité 4 — Gestion ISO par utilisateur (admin)
+
+**Modifié :**
+- `src/server/models/user.py` → `is_banned`, `ban_reason`, `banned_at` (ban au niveau **utilisateur**,
+  distinct du ban par machine déjà existant — un compte banni ne peut plus se reconnecter,
+  vérifié dans `get_current_user()` et au login)
+- `src/server/core/security.py`, `src/server/routers/auth.py` → rejettent les comptes `is_banned`
+- `src/server/routers/admin.py` → `/admin/isos` enrichi : jointure `Upload(action="upload") + User`
+  pour afficher pseudo + ID, recherche (`?q=`), boutons "Delete" et "Ban uploader" (+ option
+  "Supprimer et bannir" via une checkbox dans le formulaire)
+- `src/server/templates/admin/isos.html`, `src/server/templates/admin/users.html`
+
+## Fonctionnalité 5 — Signalement d'ISO
+
+**Nouveaux fichiers :**
+- `src/server/models/report.py` → `Report` (file_name, reporter_id, description, status, dates)
+- `src/server/templates/admin/reports.html`
+- `src/client/ui/report_dialog.py` → formulaire avec description obligatoire
+
+**Modifié :**
+- `src/server/routers/isos.py` → `POST /api/v1/isos/{filename}/report`
+- `src/server/routers/admin.py` → `/admin/reports` + 3 actions indépendantes :
+  `POST /admin/reports/{id}/ignore`, `/accept` (supprime l'ISO), `/ban-reporter` (bannit le
+  signaleur sans toucher à l'ISO)
+- `src/client/services/api.py`, `workers.py` → `report_iso()`, `ReportWorker`
+- `src/client/ui/main_window.py` → bouton 🚩 Report
+
+## Fonctionnalité 6 — Suppression ISO (vue générale admin)
+
+Déjà couvert par la fonctionnalité 4 : bouton "Delete" sur chaque ligne de `/admin/isos`,
+avec confirmation JS avant soumission du formulaire `POST /admin/isos/delete`.
+Réutilise `iso_storage.delete_iso()` (existant, inchangé).
+
+---
+
+## Contraintes transversales
+
+- **Traçabilité** : `src/server/models/admin_log.py` (`AdminActionLog` + helper
+  `log_admin_action()`), appelé à chaque ban/unban/suppression/traitement de signalement.
+- **Pas de nouveau système d'auth** : tout passe par `_require_session` (panel web) ou
+  `require_admin` (REST Bearer), déjà existants.
+- **Aucune régression** : l'ancien comportement (`Upload.action` log, ban par machine,
+  téléchargement par Range) est conservé intégralement ; les nouveaux compteurs s'ajoutent
+  en plus, sans rien retirer.
+
+## Fichiers livrés
+
+```
+src/server/models/{user.py*, report.py, hub.py, admin_log.py, __init__.py*}
+src/server/core/{config.py*, database.py*, security.py*}
+src/server/routers/{auth.py*, isos.py*, admin.py*, hub.py, __init__.py*}
+src/server/main.py*
+src/server/services/schemas.py*
+src/server/templates/admin/{base.html*, dashboard.html*, users.html*, isos.html*, reports.html}
+src/server/templates/hub/{index.html, stats.html}
+src/client/services/{api.py*, workers.py*}
+src/client/ui/{main_window.py*, report_dialog.py}
+.env.postgresql.example
+migrate_sqlite_to_postgres.load
+migration_v1.1_postgres.sql
+requirements-postgresql.txt
+```
+(`*` = fichier existant modifié, le reste est nouveau)
+
+## Vérification rapide après déploiement
 
 ```bash
-# 1. Clone & install
-git clone https://github.com/yo-le-zz/NyxCore.git
-cd NyxCore
-uv sync
+# Démarrer le serveur
+python -m src.server.main --reload
 
-# 2. Configure
-cp .env.example .env
-# Edit .env — set SECRET_KEY and MASTER_PASSWORD
-
-# 3. Run server
-uv run python main.py
-# or
-uv run nyxcore-server --port 8000
+# Vérifier les nouvelles routes
+curl http://127.0.0.1:8000/hub/
+curl http://127.0.0.1:8000/hub/stats
+curl -H "Authorization: Bearer <master_password>" http://127.0.0.1:8000/admin/api/stats
 ```
 
-Server starts on `http://localhost:8000`
-
----
-
-## Admin Web Panel
-
-> **URL : `http://localhost:8000/admin/`**
-> Password = `MASTER_PASSWORD` from your `.env`
-
-| Page | URL | Description |
-|------|-----|-------------|
-| Dashboard | `/admin/` | Stats, disk usage, recent transfers |
-| Users | `/admin/users` | List users, enable/disable accounts |
-| **Licenses** | `/admin/licenses` | **Create licenses here** ← |
-| Machines | `/admin/machines` | List machines, ban/unban |
-| ISOs | `/admin/isos` | Browse ISO repository |
-
-### First-time setup
-
-1. Go to `http://localhost:8000/admin/`  → redirects to `/admin/login`
-2. Enter your `MASTER_PASSWORD` (default: `change_me_in_env` if not set in `.env`)
-3. Go to **Licenses** → fill in Owner + Machine Limit → click **Generate License**
-4. Copy the license key → give it to your user
-5. User registers via the client or `POST /api/v1/auth/register`
-
----
-
-## Client
-
-```bash
-uv run nyxcore-client
-# or
-uv run python src/client/main.py
-```
-
----
-
-## REST API
-
-All API endpoints are prefixed with `/api/v1`.
-
-### Auth
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/auth/register` | — | Register (requires valid license key) |
-| POST | `/api/v1/auth/login` | — | Login → JWT tokens |
-| POST | `/api/v1/auth/refresh` | — | Rotate refresh token |
-| POST | `/api/v1/auth/logout` | Bearer | Revoke all sessions |
-| GET | `/api/v1/auth/me` | Bearer | Current user info |
-
-### Licenses
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/licenses/` | Admin | Create license |
-| GET | `/api/v1/licenses/` | Admin | List all licenses |
-| GET | `/api/v1/licenses/{id}` | Admin | Get one license |
-| PATCH | `/api/v1/licenses/{id}` | Admin | Update owner / limit |
-| POST | `/api/v1/licenses/revoke` | Admin | Revoke license |
-| POST | `/api/v1/licenses/{id}/restore` | Admin | Restore revoked license |
-| DELETE | `/api/v1/licenses/{id}` | Admin | Delete license |
-| GET | `/api/v1/licenses/check/{key}` | Bearer | Check a key |
-| GET | `/api/v1/licenses/my` | Bearer | My license info |
-
-### Machines
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/machines/register` | Bearer | Register / heartbeat |
-| GET | `/api/v1/machines/` | Bearer | My machines |
-| GET | `/api/v1/machines/{id}` | Bearer | One machine |
-| DELETE | `/api/v1/machines/{id}` | Bearer | Unregister |
-| GET | `/api/v1/machines/admin/all` | Admin | All machines |
-| POST | `/api/v1/machines/admin/ban` | Admin | Ban machine |
-| POST | `/api/v1/machines/admin/unban/{id}` | Admin | Unban machine |
-| DELETE | `/api/v1/machines/admin/{id}` | Admin | Force delete |
-
-### ISOs
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/v1/isos/` | Bearer | List ISOs |
-| POST | `/api/v1/isos/upload/init` | Bearer | Init chunked upload |
-| PUT | `/api/v1/isos/upload/{id}/chunk/{n}` | Bearer | Upload chunk |
-| GET | `/api/v1/isos/upload/{id}/status` | Bearer | Missing chunks (resume) |
-| POST | `/api/v1/isos/upload/{id}/complete` | Bearer | Assemble + verify |
-| GET | `/api/v1/isos/download/{filename}` | Bearer | Download (Range supported) |
-| DELETE | `/api/v1/isos/{filename}` | Bearer | Delete ISO |
-| GET | `/api/v1/isos/history` | Bearer | My transfer history |
-
-### Admin REST
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/admin/api/stats` | Admin | Platform stats |
-
-### Health
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/health` | DB ping, disk, uptime |
-| GET | `/api/v1/info` | App version info |
-
-> **Admin auth** = `Authorization: Bearer <MASTER_PASSWORD>`
-
----
-
-## Architecture
-
-```
-NyxCore/
-├── src/
-│   ├── server/
-│   │   ├── main.py                   FastAPI app entry point
-│   │   ├── core/
-│   │   │   ├── config.py             Settings (.env)
-│   │   │   ├── database.py           SQLAlchemy async (SQLite / PostgreSQL)
-│   │   │   └── security.py           JWT, SHA-512, token rotation
-│   │   ├── models/                   SQLAlchemy ORM models
-│   │   ├── routers/                  FastAPI routers (auth/licenses/machines/isos/admin/health)
-│   │   ├── services/                 Schemas + ISO storage backend
-│   │   ├── middleware/               Rate limiter + security headers
-│   │   └── templates/admin/          Jinja2 HTML admin panel
-│   └── client/
-│       ├── main.py                   PySide6 entry point
-│       ├── ui/                       auth_dialog, main_window, server_dialog
-│       ├── services/                 API client + QThread workers
-│       └── utils/                    hardware ID, session store
-├── tests/server/test_api.py          15 tests
-├── alembic/                          DB migrations
-├── .github/workflows/ci.yml          CI + build + release
-└── scripts/                          build_deb.sh, build_msi.sh
-```
-
----
-
-## Configuration (.env)
-
-```env
-SECRET_KEY=<64 random chars>
-MASTER_PASSWORD=<strong password>
-PORT=8000
-HOST=0.0.0.0
-
-# Database (default: SQLite)
-DB_BACKEND=sqlite
-# For PostgreSQL:
-# DB_BACKEND=postgresql
-# PG_HOST=localhost
-# PG_USER=nyxcore
-# PG_PASSWORD=changeme
-# PG_DATABASE=nyxcore
-
-ISO_STORAGE_PATH=./isos
-MAX_UPLOAD_SIZE_MB=8192
-DISK_ALERT_THRESHOLD_PCT=90
-DEBUG=false
-```
-
----
-
-## Development
-
-```bash
-uv run pytest tests/ -v          # run tests
-uv run ruff check src/           # lint
-uv run alembic upgrade head      # run migrations (PostgreSQL)
-```
-
----
-
-## License
-
-MIT © yolezz
+Pense aussi à vérifier dans `/admin/users` que les boutons Ban/Unban apparaissent, et dans
+`/admin/isos` que la recherche et les boutons Delete/Ban uploader fonctionnent après avoir
+uploadé au moins une ISO de test.

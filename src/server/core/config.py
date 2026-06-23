@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # ── General ───────────────────────────────────────────────────────────────
     APP_NAME: str = "NyxCore"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.1.0"
     DEBUG: bool = False
 
     # ── Network ───────────────────────────────────────────────────────────────
@@ -35,12 +35,13 @@ class Settings(BaseSettings):
     MASTER_PASSWORD: str = "change_me_in_env"
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # Switch between backends via DB_BACKEND env var:
-    #   sqlite     → sqlite+aiosqlite:///./nyxcore.db   (dev/test)
-    #   postgresql → postgresql+asyncpg://user:pass@host/db  (production)
-    DB_BACKEND: Literal["sqlite", "postgresql"] = "sqlite"
+    # Default backend is now PostgreSQL (more maintainable in production:
+    # proper ALTER TABLE migrations, concurrent writers, no "no such column"
+    # surprises after an update). SQLite is still supported for quick local
+    # testing — set DB_BACKEND=sqlite in .env to use it.
+    DB_BACKEND: Literal["sqlite", "postgresql"] = "postgresql"
 
-    # Individual PG params (ignored when DB_BACKEND=sqlite)
+    # Individual PG params (used unless DATABASE_URL is set directly)
     PG_HOST: str = "localhost"
     PG_PORT: int = 5432
     PG_USER: str = "nyxcore"

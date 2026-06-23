@@ -15,6 +15,8 @@
         <th>Username</th>
         <th>Status</th>
         <th>License</th>
+        <th>⬆ Uploads</th>
+        <th>⬇ Downloads</th>
         <th>Created</th>
         <th>Last Login</th>
         <th>Actions</th>
@@ -26,7 +28,9 @@
         <td style="color:var(--muted)">{{ user.id }}</td>
         <td style="font-weight:600">{{ user.username }}</td>
         <td>
-          {% if user.is_active %}
+          {% if user.is_banned %}
+            <span class="badge red" title="{{ user.ban_reason }}">⛔ banned</span>
+          {% elif user.is_active %}
             <span class="badge green">● active</span>
           {% else %}
             <span class="badge red">○ disabled</span>
@@ -42,25 +46,69 @@
             <span class="badge muted">none</span>
           {% endif %}
         </td>
+        <!-- Separated counters (feature 1) -->
+        <td style="color:var(--green)">
+          {{ user.total_uploads }}
+          <span class="text-muted" style="font-size:10px">({{ "%.1f"|format(user.total_upload_bytes / 1048576) }} MB)</span>
+        </td>
+        <td style="color:var(--blue)">
+          {{ user.total_downloads }}
+          <span class="text-muted" style="font-size:10px">({{ "%.1f"|format(user.total_download_bytes / 1048576) }} MB)</span>
+        </td>
         <td style="color:var(--muted)">{{ user.created_at.strftime("%Y-%m-%d") }}</td>
         <td style="color:var(--muted)">
           {% if user.last_login %}{{ user.last_login.strftime("%Y-%m-%d %H:%M") }}
           {% else %}<span style="color:var(--border)">never</span>{% endif %}
         </td>
-        <td>
+        <td style="display:flex;gap:6px">
           <form method="POST" action="/admin/users/{{ user.id }}/toggle" style="display:inline">
             {% if user.is_active %}
-              <button type="submit" class="btn danger" style="padding:4px 10px;font-size:11px">Disable</button>
+              <button type="submit" class="btn" style="padding:4px 10px;font-size:11px">Disable</button>
             {% else %}
               <button type="submit" class="btn success" style="padding:4px 10px;font-size:11px">Enable</button>
             {% endif %}
           </form>
+          {% if user.is_banned %}
+          <form method="POST" action="/admin/users/{{ user.id }}/unban" style="display:inline">
+            <button type="submit" class="btn success" style="padding:4px 10px;font-size:11px">Unban</button>
+          </form>
+          {% else %}
+          <button type="button" class="btn danger" style="padding:4px 10px;font-size:11px"
+                  onclick="openBanModal({{ user.id }}, '{{ user.username }}')">Ban</button>
+          {% endif %}
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7"><div class="empty"><div class="ico">👤</div>No users registered</div></td></tr>
+      <tr><td colspan="9"><div class="empty"><div class="ico">👤</div>No users registered</div></td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+<!-- ── Ban modal ── -->
+<div class="modal-overlay" id="banModal">
+  <div class="modal-box">
+    <h3>Ban user <span id="banUsername" class="text-blue"></span></h3>
+    <form method="POST" id="banForm" action="">
+      <div class="form-row">
+        <input type="text" name="reason" placeholder="Reason (shown to the user)" required style="width:100%">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="closeBanModal()">Cancel</button>
+        <button type="submit" class="btn danger">Ban User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openBanModal(userId, username) {
+  document.getElementById('banUsername').textContent = username;
+  document.getElementById('banForm').action = '/admin/users/' + userId + '/ban';
+  document.getElementById('banModal').classList.add('open');
+}
+function closeBanModal() {
+  document.getElementById('banModal').classList.remove('open');
+}
+</script>
 {% endblock %}

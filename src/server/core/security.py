@@ -9,6 +9,8 @@ Threat model addressed:
                             (detect token theft via "refresh token reuse detection")
   4. Access token scope   → 15 min TTL (short window if stolen)
   5. Timing attacks       → secrets.compare_digest everywhere
+  6. Banned users         → is_active=False OR is_banned=True both lock the account out,
+                            including already-issued access tokens (checked on every request)
 """
 
 from __future__ import annotations
@@ -242,6 +244,8 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or disabled")
+    if user.is_banned:
+        raise HTTPException(status_code=403, detail=f"Account banned: {user.ban_reason or 'no reason given'}")
     return user
 
 

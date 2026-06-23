@@ -1,0 +1,4 @@
+# À ajouter à requirements.txt (ou installer directement) pour le backend
+# PostgreSQL :
+asyncpg>=0.29
+psycopg2-binary>=2.9

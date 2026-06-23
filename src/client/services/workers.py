@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import threading
+
 from PySide6.QtCore import QThread, Signal
+
+from src.client.services.api import UploadCancelled
 
 
 class LoginWorker(QThread):
@@ -43,14 +47,28 @@ class RegisterWorker(QThread):
 
 
 class UploadWorker(QThread):
+    """
+    Upload worker — cancellable (feature 3).
+
+    Call .cancel() from the UI thread to request cancellation; the worker
+    checks a threading.Event between chunks (and during the SHA-256 pass) and
+    stops cleanly, telling the server to discard the partial upload.
+    """
+
     progress = Signal(int)  # percentage 0-100
     success = Signal(str)
     error = Signal(str)
+    cancelled = Signal(str)
 
     def __init__(self, api, file_path: str):
         super().__init__()
         self._api = api
         self._file_path = file_path
+        self._cancel_event = threading.Event()
+
+    def cancel(self):
+        """Request cancellation. Safe to call multiple times / from the UI thread."""
+        self._cancel_event.set()
 
     def run(self):
         try:
@@ -59,8 +77,12 @@ class UploadWorker(QThread):
                 if total:
                     self.progress.emit(int(sent * 100 / total))
 
-            self._api.upload_iso(self._file_path, progress_callback=_cb)
+            self._api.upload_iso(
+                self._file_path, progress_callback=_cb, cancel_event=self._cancel_event
+            )
             self.success.emit(self._file_path)
+        except UploadCancelled as e:
+            self.cancelled.emit(str(e))
         except Exception as e:
             self.error.emit(str(e))
 
@@ -100,5 +122,25 @@ class ListISOsWorker(QThread):
     def run(self):
         try:
             self.success.emit(self._api.list_isos())
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class ReportWorker(QThread):
+    """Feature 5 — submits a report for an ISO."""
+
+    success = Signal(str)
+    error = Signal(str)
+
+    def __init__(self, api, filename: str, description: str):
+        super().__init__()
+        self._api = api
+        self._filename = filename
+        self._description = description
+
+    def run(self):
+        try:
+            self._api.report_iso(self._filename, self._description)
+            self.success.emit(self._filename)
         except Exception as e:
             self.error.emit(str(e))

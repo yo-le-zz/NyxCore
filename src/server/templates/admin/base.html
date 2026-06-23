@@ -25,9 +25,11 @@ nav a{display:flex;align-items:center;gap:10px;padding:9px 16px;color:var(--mute
 nav a:hover{color:var(--text);background:var(--border2)}
 nav a.active{color:var(--blue);border-left-color:var(--blue);background:rgba(88,166,255,.08)}
 nav a .ico{width:18px;text-align:center}
+nav a .count{margin-left:auto;background:var(--red);color:#fff;font-size:10px;border-radius:10px;padding:1px 6px}
 .sidebar-footer{padding:12px 16px;border-top:1px solid var(--border)}
-.sidebar-footer a{color:var(--muted);text-decoration:none;font-size:11px;display:flex;align-items:center;gap:6px}
+.sidebar-footer a{color:var(--muted);text-decoration:none;font-size:11px;display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .sidebar-footer a:hover{color:var(--red)}
+.sidebar-footer a.hub-link:hover{color:var(--blue)}
 
 /* ── Main ── */
 .main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
@@ -88,6 +90,7 @@ input[type=text],input[type=password],input[type=number],select{
   padding:7px 12px;color:var(--text);font-family:var(--font);font-size:12px;
 }
 input:focus,select:focus{outline:none;border-color:var(--blue)}
+label.checkbox{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer}
 
 /* ── Section header ── */
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -99,6 +102,17 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 
 /* ── Alert banner ── */
 .alert-banner{background:rgba(248,81,73,.1);border:1px solid var(--red);border-radius:6px;padding:10px 14px;margin-bottom:16px;color:var(--red);font-size:12px}
+
+/* ── Modal (used for ban confirmation dialogs) ── */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:380px}
+.modal-box h3{font-size:13px;margin-bottom:12px;color:var(--text)}
+.modal-box .form-row{margin-bottom:10px}
+.modal-box input[type=text]{width:100%}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.text-muted{color:var(--muted)}
+.text-blue{color:var(--blue)}
 </style>
 </head>
 <body>
@@ -106,7 +120,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
 <aside class="sidebar">
   <div class="sidebar-logo">
     <span class="icon">🌑</span>
-    <div><div class="name">NyxCore</div><div class="ver">Admin Panel v1.0.0</div></div>
+    <div><div class="name">NyxCore</div><div class="ver">Admin Panel v1.1.0</div></div>
   </div>
   <nav>
     <a href="/admin/" class="{% if active=='dashboard' %}active{% endif %}">
@@ -124,8 +138,13 @@ input:focus,select:focus{outline:none;border-color:var(--blue)}
     <a href="/admin/isos" class="{% if active=='isos' %}active{% endif %}">
       <span class="ico">💿</span> ISOs
     </a>
+    <a href="/admin/reports" class="{% if active=='reports' %}active{% endif %}">
+      <span class="ico">🚩</span> Reports
+      {% if pending_reports_count %}<span class="count">{{ pending_reports_count }}</span>{% endif %}
+    </a>
   </nav>
   <div class="sidebar-footer">
+    <a href="/hub/" target="_blank" class="hub-link">🌐 &nbsp;Public Hub</a>
     <a href="/admin/logout">⏻ &nbsp;Logout</a>
   </div>
 </aside>

@@ -8,6 +8,8 @@ Chunked resumable upload protocol:
        → { received, total_chunks, missing: [...] }
   3. POST /isos/upload/{upload_id}/complete
        → { file_name, file_size, sha256 }
+  Cancel at any point before completion:
+  DELETE /isos/upload/{upload_id}      → cleans up staging chunks + DB record
 
 Resume: skip chunks where chunk_exists() returns True.
 Client can query GET /isos/upload/{upload_id}/status to see which chunks are missing.
@@ -15,6 +17,9 @@ Client can query GET /isos/upload/{upload_id}/status to see which chunks are mis
 Download with HTTP Range:
   GET /isos/download/{filename}              → full file
   GET /isos/download/{filename} + Range header → partial content (resume)
+
+Reporting an ISO (feature 5):
+  POST /isos/{filename}/report  { description }
 """
 
 from __future__ import annotations
@@ -33,14 +38,18 @@ from src.server.core.config import settings
 from src.server.core.database import get_db
 from src.server.core.security import get_current_user
 from src.server.models.iso_chunk import ISOChunkUpload
+from src.server.models.report import Report
 from src.server.models.upload import Upload
 from src.server.models.user import User
 from src.server.services import iso_storage
 from src.server.services.schemas import (
+    CancelUploadResponse,
     ChunkStatus,
     ChunkUploadInit,
     ChunkUploadInitResponse,
     ISOOut,
+    ReportCreate,
+    ReportOut,
     UploadOut,
 )
 
@@ -136,6 +145,8 @@ async def upload_chunk(
     record = result.scalar_one_or_none()
     if record is None:
         raise HTTPException(status_code=404, detail="Upload session not found")
+    if record.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Upload was cancelled")
     if record.status == "complete":
         raise HTTPException(status_code=409, detail="Upload already complete")
     if chunk_index < 0 or chunk_index >= record.total_chunks:
@@ -209,6 +220,45 @@ async def upload_status(
     )
 
 
+# ── Chunked upload — cancel (feature 3) ────────────────────────────────────────
+
+
+@router.delete("/upload/{upload_id}", response_model=CancelUploadResponse)
+async def cancel_upload(
+    upload_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Cancel an in-progress chunked upload.
+
+    - Removes every staged chunk already received for this upload_id
+    - Marks the DB record as "cancelled" (kept for a short audit trail rather
+      than hard-deleted, but no longer resumable and not shown anywhere)
+    - Safe to call even if the upload is already complete/cancelled (idempotent)
+    """
+    result = await db.execute(
+        select(ISOChunkUpload).where(
+            ISOChunkUpload.upload_id == upload_id,
+            ISOChunkUpload.user_id == user.id,
+        )
+    )
+    record = result.scalar_one_or_none()
+    if record is None:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    if record.status == "complete":
+        raise HTTPException(status_code=409, detail="Cannot cancel a completed upload")
+
+    iso_storage.cleanup_staging(upload_id)
+
+    record.status = "cancelled"
+    record.updated_at = datetime.now(UTC)
+    await db.flush()
+
+    return CancelUploadResponse(upload_id=upload_id, status="cancelled")
+
+
 # ── Chunked upload — complete (assemble + verify) ─────────────────────────────
 
 
@@ -227,6 +277,8 @@ async def complete_upload(
     record = result.scalar_one_or_none()
     if record is None:
         raise HTTPException(status_code=404, detail="Upload session not found")
+    if record.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Upload was cancelled")
     if record.status == "complete":
         return {"file_name": record.filename, "status": "already_complete"}
 
@@ -259,18 +311,25 @@ async def complete_upload(
     record.status = "complete"
     record.updated_at = datetime.now(UTC)
 
+    file_size = dest.stat().st_size
+
     log = Upload(
         user_id=user.id,
         file_name=record.filename,
-        file_size=dest.stat().st_size,
+        file_size=file_size,
         action="upload",
     )
     db.add(log)
+
+    # Separate upload/download counters (feature 1)
+    user.total_uploads += 1
+    user.total_upload_bytes += file_size
+
     await db.flush()
 
     return {
         "file_name": record.filename,
-        "file_size": dest.stat().st_size,
+        "file_size": file_size,
         "sha256": actual_sha256,
         "status": "complete",
     }
@@ -294,6 +353,17 @@ async def download_iso(
     file_size = path.stat().st_size
     media_type = "application/octet-stream"
 
+    # Only the initial request (no Range, or Range starting at 0) counts toward
+    # the download counter — repeated Range requests during a resumed transfer
+    # must not inflate "total_downloads".
+    is_first_request = range is None or range.strip().startswith("bytes=0-")
+    if is_first_request:
+        log = Upload(user_id=user.id, file_name=filename, file_size=file_size, action="download")
+        db.add(log)
+        user.total_downloads += 1
+        user.total_download_bytes += file_size
+        await db.flush()
+
     # ── Range request (resume / seek) ─────────────────────────────────────────
     if range:
         start, end = _parse_range(range, file_size)
@@ -316,9 +386,6 @@ async def download_iso(
             "Content-Length": str(length),
             "Content-Disposition": f'attachment; filename="{filename}"',
         }
-        # Log download (async, don't wait for full transfer)
-        log = Upload(user_id=user.id, file_name=filename, file_size=file_size, action="download")
-        db.add(log)
         return StreamingResponse(
             _range_gen(), status_code=206, headers=headers, media_type=media_type
         )
@@ -334,8 +401,6 @@ async def download_iso(
         "Content-Length": str(file_size),
         "Content-Disposition": f'attachment; filename="{filename}"',
     }
-    log = Upload(user_id=user.id, file_name=filename, file_size=file_size, action="download")
-    db.add(log)
     return StreamingResponse(_full_gen(), status_code=200, headers=headers, media_type=media_type)
 
 
@@ -391,3 +456,31 @@ async def upload_history(
         select(Upload).where(Upload.user_id == user.id).order_by(Upload.timestamp.desc()).limit(100)
     )
     return result.scalars().all()
+
+
+# ── Reports (feature 5) ────────────────────────────────────────────────────────
+
+
+@router.post("/{filename}/report", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
+async def report_iso(
+    filename: str,
+    body: ReportCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _safe_filename(filename)
+    if filename != body.file_name:
+        raise HTTPException(status_code=400, detail="filename mismatch")
+
+    path = iso_storage.complete_path(filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="ISO not found")
+
+    report = Report(
+        file_name=filename,
+        reporter_id=user.id,
+        description=body.description,
+    )
+    db.add(report)
+    await db.flush()
+    return report
