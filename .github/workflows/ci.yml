@@ -12,6 +12,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.13"
+  DATABASE_URL: postgresql+asyncpg://nyx:nyx@localhost:5432/nyxcore
 
 jobs:
 
@@ -24,18 +25,15 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: nyx
-          POSTGRES_PASSWORD: nyxpass
+          POSTGRES_PASSWORD: nyx
           POSTGRES_DB: nyxcore
         ports:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U nyx"
-          --health-interval=10s
+          --health-interval=5s
           --health-timeout=5s
-          --health-retries=5
-
-    env:
-      DATABASE_URL: postgresql+asyncpg://nyx:nyxpass@localhost:5432/nyxcore
+          --health-retries=10
 
     steps:
       - uses: actions/checkout@v4
@@ -45,20 +43,35 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
       - name: Install uv
         run: pip install uv
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: |
+          uv sync --extra dev
+          uv pip install aiosqlite asyncpg
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -U nyx; do
+            sleep 1
+          done
 
       - name: Run tests
         run: uv run pytest tests/server/ -v
+
 
   build-linux:
     name: Build Linux (.deb)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -91,6 +104,7 @@ jobs:
             --output-filename=nyxcore \
             --include-package=src.client \
             src/client/main.py
+
           mv dist/client/main.dist dist/client/nyxcore.dist
 
       - name: Package .deb (client)
@@ -102,40 +116,46 @@ jobs:
           name: linux-deb
           path: dist/*.deb
 
+
   release:
     name: Create GitHub Release
     if: github.ref == 'refs/heads/main'
     needs: [build-linux]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Extract version from commit message
+      - name: Extract version
         id: version
         run: |
           MSG="${{ github.event.head_commit.message }}"
           VERSION=$(echo "$MSG" | grep -oP '\d+\.\d+\.\d+' | head -1)
+
           if [ -z "$VERSION" ]; then
             VERSION=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)
           fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Generate changelog
         id: changelog
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
           if [ -n "$PREV_TAG" ]; then
             LOG=$(git log "$PREV_TAG"..HEAD --oneline --no-merges)
           else
             LOG=$(git log --oneline --no-merges -20)
           fi
+
           echo "log<<EOF" >> "$GITHUB_OUTPUT"
           echo "$LOG" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Download Linux artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           name: linux-deb
@@ -145,6 +165,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git tag "v${{ steps.version.outputs.version }}" || true
           git push origin "v${{ steps.version.outputs.version }}" || true
 
@@ -162,11 +183,14 @@ jobs:
             ```
 
             ### Downloads
-            | Platform |       Package      |
-            |----------|--------------------|
+            | Platform | Package |
+            |----------|--------|
             | Linux    | nyxcore.deb |
 
             ### Server
-            Le serveur ne se compile pas, il se lance directement avec Python : `uv run python -m src.server.main` (ou via le service systemd installé séparément).
+            Run server manually:
+            ```bash
+            uv run python -m src.server.main
+            ```
           files: release/*
           generate_release_notes: false
