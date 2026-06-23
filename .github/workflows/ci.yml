@@ -14,11 +14,10 @@ env:
   PYTHON_VERSION: "3.13"
 
 jobs:
-  build-linux:
 
+  build-linux:
     name: Build Linux (.deb)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build-linux]
     runs-on: ubuntu-latest
 
     steps:
