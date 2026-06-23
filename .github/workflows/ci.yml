@@ -18,6 +18,25 @@ jobs:
   test:
     name: Lint & Test
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nyx
+          POSTGRES_PASSWORD: nyxpass
+          POSTGRES_DB: nyxcore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U nyx"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://nyx:nyxpass@localhost:5432/nyxcore
+
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +49,7 @@ jobs:
         run: pip install uv
 
       - name: Install dependencies
-        run: |
-          uv sync --extra dev
-          uv pip install aiosqlite
+        run: uv sync --extra dev
 
       - name: Run tests
         run: uv run pytest tests/server/ -v
